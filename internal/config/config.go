@@ -5,8 +5,6 @@ import "time"
 type Config struct {
 	Server   ServerConfig   `mapstructure:"server"`
 	Database DatabaseConfig `mapstructure:"database"`
-	Redis    RedisConfig    `mapstructure:"redis"`
-	Kafka    KafkaConfig    `mapstructure:"kafka"`
 	Logger   LoggerConfig   `mapstructure:"logger"`
 }
 
@@ -27,18 +25,6 @@ type DatabaseConfig struct {
 	MaxOpenConns    int           `mapstructure:"max_open_conns"`
 	MaxIdleConns    int           `mapstructure:"max_idle_conns"`
 	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime"`
-}
-
-type RedisConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Password string `mapstructure:"password"`
-	DB       int    `mapstructure:"db"`
-}
-
-type KafkaConfig struct {
-	Brokers  []string `mapstructure:"brokers"`
-	ClientID string   `mapstructure:"client_id"`
 }
 
 type LoggerConfig struct {

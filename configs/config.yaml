@@ -15,17 +15,6 @@ database:
     max_idle_conns: 25
     conn_max_lifetime: 30m
 
-redis:
-    host: localhost
-    port: 6379
-    password: ""
-    db: 0
-
-kafka:
-    brokers:
-        - localhost:9092
-    client_id: payment-service
-
 logger:
     level: info
     development: true
