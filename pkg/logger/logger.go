@@ -1,15 +1,27 @@
 package logger
 
-import "go.uber.org/zap"
+import (
+	"fmt"
+	"ledgerflow-payment-service/internal/config"
 
-var Log *zap.Logger
+	"go.uber.org/zap"
+)
 
-func Init() error {
-	var err error
+func New(cfg config.LoggerConfig) (*zap.Logger, error) {
 
-	Log, err = zap.NewProduction()
+	zapConfig := BuildConfig(
+		cfg.Development,
+		cfg.Level,
+	)
+
+	log, err := zapConfig.Build(
+		zap.AddCaller(),
+		zap.AddCallerSkip(1),
+	)
+
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to initialize logger: %w", err)
 	}
-	return nil
+
+	return log, nil
 }

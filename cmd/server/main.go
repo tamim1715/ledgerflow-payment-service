@@ -12,4 +12,12 @@ func main() {
 	s := "LedgerFlow"
 	fmt.Printf("Hello and welcome, %s!\n", s)
 
+	//app, err := app.NewApplication()
+	//if err != nil {
+	//    log.Fatal(err)
+	//}
+	//
+	//if err := app.Run(); err != nil {
+	//    app.Logger.Fatal("application stopped", zap.Error(err))
+	//}
 }
