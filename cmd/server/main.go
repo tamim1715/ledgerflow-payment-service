@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"ledgerflow-payment-service/internal/app"
+
+	"log"
 )
 
 // TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
@@ -12,12 +15,13 @@ func main() {
 	s := "LedgerFlow"
 	fmt.Printf("Hello and welcome, %s!\n", s)
 
-	//app, err := app.NewApplication()
-	//if err != nil {
-	//    log.Fatal(err)
-	//}
-	//
-	//if err := app.Run(); err != nil {
-	//    app.Logger.Fatal("application stopped", zap.Error(err))
-	//}
+	application, err := app.NewApplication()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := application.Run(); err != nil {
+		application.Logger.Fatal(err.Error())
+	}
 }
