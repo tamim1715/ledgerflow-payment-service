@@ -2,6 +2,7 @@ package app
 
 import (
 	"ledgerflow-payment-service/internal/config"
+	"ledgerflow-payment-service/internal/handler"
 	"net/http"
 
 	"github.com/jmoiron/sqlx"
@@ -19,4 +20,6 @@ type Application struct {
 	Echo *echo.Echo
 
 	HTTPServer *http.Server
+
+	Handlers *handler.Handler
 }
