@@ -1,5 +1,11 @@
 package handler
 
-type Handler struct {
+type Handlers struct {
 	Health *HealthHandler
+}
+
+func NewHandler(health *HealthHandler) *Handlers {
+	return &Handlers{
+		Health: health,
+	}
 }

@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"ledgerflow-payment-service/internal/config"
+	"ledgerflow-payment-service/internal/handler"
 	"ledgerflow-payment-service/pkg/database"
 	"ledgerflow-payment-service/pkg/logger"
 
@@ -32,11 +33,18 @@ func NewApplication() (*Application, error) {
 	// Create Echo
 	e := echo.New()
 
+	// Create health handler
+	health := handler.NewHealthHandler()
+
+	// Create handlers
+	h := handler.NewHandler(health)
+
 	app := &Application{
 		Config: cfg,
 		Logger: log,
 		DB:     db,
 		Echo:   e,
+		Handlers: h,
 	}
 
 	return app, nil
