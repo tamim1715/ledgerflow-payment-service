@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"ledgerflow-payment-service/internal/config"
 	"ledgerflow-payment-service/internal/handler"
+	"ledgerflow-payment-service/internal/middleware"
 	"ledgerflow-payment-service/pkg/database"
 	"ledgerflow-payment-service/pkg/logger"
 
-	"github.com/labstack/echo/v4"
+	"github.com/gin-gonic/gin"
 )
 
 func NewApplication() (*Application, error) {
@@ -30,8 +31,19 @@ func NewApplication() (*Application, error) {
 		return nil, fmt.Errorf("initialize mysql: %w", err)
 	}
 
-	// Create Echo
-	e := echo.New()
+	// Set Gin mode according to configuration environment
+	if cfg.Logger.Development {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	// Create Gin engine without default middlewares (gin.New best practice)
+	engine := gin.New()
+
+	// Register core production middlewares
+	engine.Use(middleware.ZapLogger(log))
+	engine.Use(middleware.ZapRecovery(log))
 
 	// Create health handler
 	health := handler.NewHealthHandler()
@@ -40,12 +52,13 @@ func NewApplication() (*Application, error) {
 	h := handler.NewHandler(health)
 
 	app := &Application{
-		Config: cfg,
-		Logger: log,
-		DB:     db,
-		Echo:   e,
+		Config:   cfg,
+		Logger:   log,
+		DB:       db,
+		Engine:   engine,
 		Handlers: h,
 	}
 
 	return app, nil
 }
+

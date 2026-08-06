@@ -5,8 +5,8 @@ import (
 	"ledgerflow-payment-service/internal/handler"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
-	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
 )
 
@@ -17,9 +17,10 @@ type Application struct {
 
 	DB *sqlx.DB
 
-	Echo *echo.Echo
+	Engine *gin.Engine
 
 	HTTPServer *http.Server
 
-	Handlers *handler.Handler
+	Handlers *handler.Handlers
 }
+

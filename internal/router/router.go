@@ -3,17 +3,15 @@ package router
 import (
 	"ledgerflow-payment-service/internal/handler"
 
-	"github.com/labstack/echo/v4"
+	"github.com/gin-gonic/gin"
 )
 
 func RegisterRoutes(
-	e *echo.Echo,
-	h *handler.Handler,
+	r *gin.Engine,
+	h *handler.Handlers,
 ) {
-
-	e.GET("/health", h.Health.Health)
-
-	e.GET("/ready", h.Health.Ready)
-
-	e.GET("/live", h.Health.Live)
+	// Health routes
+	r.GET("/health", h.Health.Health)
+	r.GET("/ready", h.Health.Ready)
+	r.GET("/live", h.Health.Live)
 }
