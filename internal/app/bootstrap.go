@@ -3,8 +3,10 @@ package app
 import (
 	"fmt"
 	"ledgerflow-payment-service/internal/config"
-	"ledgerflow-payment-service/internal/handler"
 	"ledgerflow-payment-service/internal/middleware"
+	"ledgerflow-payment-service/internal/modules/billing"
+	"ledgerflow-payment-service/internal/modules/health"
+	"ledgerflow-payment-service/internal/router"
 	"ledgerflow-payment-service/pkg/database"
 	"ledgerflow-payment-service/pkg/logger"
 
@@ -25,10 +27,10 @@ func NewApplication() (*Application, error) {
 		return nil, fmt.Errorf("initialize logger: %w", err)
 	}
 
-	// Connect MySQL
-	db, err := database.NewMySQL(cfg.Database, log)
+	// Connect PostgreSQL
+	db, err := database.NewPostgres(cfg.Database, log)
 	if err != nil {
-		return nil, fmt.Errorf("initialize mysql: %w", err)
+		return nil, fmt.Errorf("initialize postgres: %w", err)
 	}
 
 	// Set Gin mode according to configuration environment
@@ -45,20 +47,25 @@ func NewApplication() (*Application, error) {
 	engine.Use(middleware.ZapLogger(log))
 	engine.Use(middleware.ZapRecovery(log))
 
-	// Create health handler
-	health := handler.NewHealthHandler()
+	// Instantiate Modules
+	healthHandler := health.NewHandler()
 
-	// Create handlers
-	h := handler.NewHandler(health)
+	billingRepo := billing.NewRepository(db)
+	billingSvc := billing.NewService(billingRepo, log)
+	billingHandler := billing.NewHandler(billingSvc)
+
+	modules := &router.Modules{
+		Health:  healthHandler,
+		Billing: billingHandler,
+	}
 
 	app := &Application{
-		Config:   cfg,
-		Logger:   log,
-		DB:       db,
-		Engine:   engine,
-		Handlers: h,
+		Config:  cfg,
+		Logger:  log,
+		DB:      db,
+		Engine:  engine,
+		Modules: modules,
 	}
 
 	return app, nil
 }
-

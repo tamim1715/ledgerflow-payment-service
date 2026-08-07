@@ -1,0 +1,521 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {}
+    },
+    "paths": {
+        "/api/v1/bills": {
+            "get": {
+                "description": "Retrieves paginated list of bills with optional status and customer filter",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Billing"
+                ],
+                "summary": "List bills",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by Customer ID",
+                        "name": "customer_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by Bill status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/billing.BillListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a new billing invoice with calculated totals and line items",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Billing"
+                ],
+                "summary": "Create a new bill/invoice",
+                "parameters": [
+                    {
+                        "description": "Bill creation payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/billing.CreateBillRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/billing.BillResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/bills/{id}": {
+            "get": {
+                "description": "Fetches full bill details including line items by bill ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Billing"
+                ],
+                "summary": "Get a bill by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bill ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/billing.BillResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Updates existing bill metadata, status, or item list",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Billing"
+                ],
+                "summary": "Update a bill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bill ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Bill update payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/billing.UpdateBillRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/billing.BillResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Deletes a bill by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Billing"
+                ],
+                "summary": "Delete a bill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bill ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "billing.BillItem": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "bill_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "unit_price": {
+                    "type": "number"
+                }
+            }
+        },
+        "billing.BillListResponse": {
+            "type": "object",
+            "properties": {
+                "bills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/billing.BillResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "billing.BillResponse": {
+            "type": "object",
+            "properties": {
+                "bill_number": {
+                    "type": "string",
+                    "example": "INV-2026-0001"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-08-07T15:00:00Z"
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "USD"
+                },
+                "customer_id": {
+                    "type": "string",
+                    "example": "cust_987654"
+                },
+                "discount": {
+                    "type": "number",
+                    "example": 10
+                },
+                "due_date": {
+                    "type": "string",
+                    "example": "2026-12-31T23:59:59Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "bill_123abc456def"
+                },
+                "issue_date": {
+                    "type": "string",
+                    "example": "2026-08-07T15:00:00Z"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/billing.BillItem"
+                    }
+                },
+                "metadata": {
+                    "type": "object"
+                },
+                "notes": {
+                    "type": "string",
+                    "example": "Monthly enterprise subscription invoice"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/billing.BillStatus"
+                        }
+                    ],
+                    "example": "DRAFT"
+                },
+                "subtotal": {
+                    "type": "number",
+                    "example": 300
+                },
+                "tax": {
+                    "type": "number",
+                    "example": 15
+                },
+                "total_amount": {
+                    "type": "number",
+                    "example": 305
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2026-08-07T15:00:00Z"
+                }
+            }
+        },
+        "billing.BillStatus": {
+            "type": "string",
+            "enum": [
+                "DRAFT",
+                "PENDING",
+                "PAID",
+                "OVERDUE",
+                "CANCELLED"
+            ],
+            "x-enum-varnames": [
+                "BillStatusDraft",
+                "BillStatusPending",
+                "BillStatusPaid",
+                "BillStatusOverdue",
+                "BillStatusCancelled"
+            ]
+        },
+        "billing.CreateBillItemRequest": {
+            "type": "object",
+            "required": [
+                "description",
+                "quantity",
+                "unit_price"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "Cloud Hosting \u0026 Infrastructure"
+                },
+                "quantity": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "unit_price": {
+                    "type": "number",
+                    "minimum": 0,
+                    "example": 150
+                }
+            }
+        },
+        "billing.CreateBillRequest": {
+            "type": "object",
+            "required": [
+                "currency",
+                "customer_id",
+                "due_date",
+                "items"
+            ],
+            "properties": {
+                "currency": {
+                    "type": "string",
+                    "example": "USD"
+                },
+                "customer_id": {
+                    "type": "string",
+                    "example": "cust_987654"
+                },
+                "discount": {
+                    "type": "number",
+                    "minimum": 0,
+                    "example": 10
+                },
+                "due_date": {
+                    "type": "string",
+                    "example": "2026-12-31T23:59:59Z"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/billing.CreateBillItemRequest"
+                    }
+                },
+                "metadata": {
+                    "type": "object"
+                },
+                "notes": {
+                    "type": "string",
+                    "example": "Monthly enterprise subscription invoice"
+                },
+                "tax": {
+                    "type": "number",
+                    "minimum": 0,
+                    "example": 15
+                }
+            }
+        },
+        "billing.UpdateBillRequest": {
+            "type": "object",
+            "properties": {
+                "discount": {
+                    "type": "number",
+                    "minimum": 0,
+                    "example": 5
+                },
+                "due_date": {
+                    "type": "string",
+                    "example": "2026-12-31T23:59:59Z"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/billing.CreateBillItemRequest"
+                    }
+                },
+                "metadata": {
+                    "type": "object"
+                },
+                "notes": {
+                    "type": "string",
+                    "example": "Payment received and verified"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/billing.BillStatus"
+                        }
+                    ],
+                    "example": "PAID"
+                },
+                "tax": {
+                    "type": "number",
+                    "minimum": 0,
+                    "example": 20
+                }
+            }
+        }
+    }
+}

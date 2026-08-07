@@ -1,9 +1,10 @@
 package app
 
 import (
-	"ledgerflow-payment-service/internal/config"
-	"ledgerflow-payment-service/internal/handler"
 	"net/http"
+
+	"ledgerflow-payment-service/internal/config"
+	"ledgerflow-payment-service/internal/router"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -11,16 +12,10 @@ import (
 )
 
 type Application struct {
-	Config *config.Config
-
-	Logger *zap.Logger
-
-	DB *sqlx.DB
-
-	Engine *gin.Engine
-
+	Config     *config.Config
+	Logger     *zap.Logger
+	DB         *sqlx.DB
+	Engine     *gin.Engine
 	HTTPServer *http.Server
-
-	Handlers *handler.Handlers
+	Modules    *router.Modules
 }
-

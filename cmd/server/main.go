@@ -1,24 +1,30 @@
 package main
 
 import (
-	"fmt"
-	"ledgerflow-payment-service/internal/app"
-
 	"log"
+
+	"ledgerflow-payment-service/internal/app"
 )
 
-// TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
-// the <icon src="AllIcons.Actions.Execute"/> icon in the gutter and select the <b>Run</b> menu item from here.</p>
+// @title           LedgerFlow Payment & Billing Service API
+// @version         1.0
+// @description     Enterprise Multi-Tenant Payment Gateway & Automated Billing Microservice
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name    LedgerFlow Engineering Team
+// @contact.url     https://ledgerflow.io/support
+// @contact.email   support@ledgerflow.io
+
+// @license.name    Apache 2.0
+// @license.url     http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host            localhost:8081
+// @BasePath        /
+// @schemes         http https
 func main() {
-	//TIP <p>Press <shortcut actionId="ShowIntentionActions"/> when your caret is at the underlined text
-	// to see how GoLand suggests fixing the warning.</p><p>Alternatively, if available, click the lightbulb to view possible fixes.</p>
-	s := "LedgerFlow"
-	fmt.Printf("Hello and welcome, %s!\n", s)
-
 	application, err := app.NewApplication()
-
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to initialize application: %v", err)
 	}
 
 	if err := application.Run(); err != nil {

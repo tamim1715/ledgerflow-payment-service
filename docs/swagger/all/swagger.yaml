@@ -1,0 +1,417 @@
+basePath: /
+definitions:
+  internal_modules_billing.BillItem:
+    properties:
+      amount:
+        type: number
+      bill_id:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      quantity:
+        type: integer
+      unit_price:
+        type: number
+    type: object
+  internal_modules_billing.BillListResponse:
+    properties:
+      bills:
+        items:
+          $ref: '#/definitions/internal_modules_billing.BillResponse'
+        type: array
+      limit:
+        example: 10
+        type: integer
+      page:
+        example: 1
+        type: integer
+      total:
+        example: 1
+        type: integer
+    type: object
+  internal_modules_billing.BillResponse:
+    properties:
+      bill_number:
+        example: INV-2026-0001
+        type: string
+      created_at:
+        example: "2026-08-07T15:00:00Z"
+        type: string
+      currency:
+        example: USD
+        type: string
+      customer_id:
+        example: cust_987654
+        type: string
+      discount:
+        example: 10
+        type: number
+      due_date:
+        example: "2026-12-31T23:59:59Z"
+        type: string
+      id:
+        example: bill_123abc456def
+        type: string
+      issue_date:
+        example: "2026-08-07T15:00:00Z"
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/internal_modules_billing.BillItem'
+        type: array
+      metadata:
+        type: object
+      notes:
+        example: Monthly enterprise subscription invoice
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/internal_modules_billing.BillStatus'
+        example: DRAFT
+      subtotal:
+        example: 300
+        type: number
+      tax:
+        example: 15
+        type: number
+      total_amount:
+        example: 305
+        type: number
+      updated_at:
+        example: "2026-08-07T15:00:00Z"
+        type: string
+    type: object
+  internal_modules_billing.BillStatus:
+    enum:
+    - DRAFT
+    - PENDING
+    - PAID
+    - OVERDUE
+    - CANCELLED
+    type: string
+    x-enum-varnames:
+    - BillStatusDraft
+    - BillStatusPending
+    - BillStatusPaid
+    - BillStatusOverdue
+    - BillStatusCancelled
+  internal_modules_billing.CreateBillItemRequest:
+    properties:
+      description:
+        example: Cloud Hosting & Infrastructure
+        type: string
+      quantity:
+        example: 2
+        type: integer
+      unit_price:
+        example: 150
+        minimum: 0
+        type: number
+    required:
+    - description
+    - quantity
+    - unit_price
+    type: object
+  internal_modules_billing.CreateBillRequest:
+    properties:
+      currency:
+        example: USD
+        type: string
+      customer_id:
+        example: cust_987654
+        type: string
+      discount:
+        example: 10
+        minimum: 0
+        type: number
+      due_date:
+        example: "2026-12-31T23:59:59Z"
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/internal_modules_billing.CreateBillItemRequest'
+        type: array
+      metadata:
+        type: object
+      notes:
+        example: Monthly enterprise subscription invoice
+        type: string
+      tax:
+        example: 15
+        minimum: 0
+        type: number
+    required:
+    - currency
+    - customer_id
+    - due_date
+    - items
+    type: object
+  internal_modules_billing.UpdateBillRequest:
+    properties:
+      discount:
+        example: 5
+        minimum: 0
+        type: number
+      due_date:
+        example: "2026-12-31T23:59:59Z"
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/internal_modules_billing.CreateBillItemRequest'
+        type: array
+      metadata:
+        type: object
+      notes:
+        example: Payment received and verified
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/internal_modules_billing.BillStatus'
+        example: PAID
+      tax:
+        example: 20
+        minimum: 0
+        type: number
+    type: object
+host: localhost:8081
+info:
+  contact:
+    email: support@ledgerflow.io
+    name: LedgerFlow Engineering Team
+    url: https://ledgerflow.io/support
+  description: Enterprise Multi-Tenant Payment Gateway & Automated Billing Microservice
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: LedgerFlow Payment & Billing Service API
+  version: "1.0"
+paths:
+  /api/v1/bills:
+    get:
+      description: Retrieves paginated list of bills with optional status and customer
+        filter
+      parameters:
+      - description: Filter by Customer ID
+        in: query
+        name: customer_id
+        type: string
+      - description: Filter by Bill status
+        in: query
+        name: status
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_billing.BillListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List bills
+      tags:
+      - Billing
+    post:
+      consumes:
+      - application/json
+      description: Creates a new billing invoice with calculated totals and line items
+      parameters:
+      - description: Bill creation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_billing.CreateBillRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_billing.BillResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new bill/invoice
+      tags:
+      - Billing
+  /api/v1/bills/{id}:
+    delete:
+      description: Deletes a bill by ID
+      parameters:
+      - description: Bill ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete a bill
+      tags:
+      - Billing
+    get:
+      description: Fetches full bill details including line items by bill ID
+      parameters:
+      - description: Bill ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_billing.BillResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get a bill by ID
+      tags:
+      - Billing
+    put:
+      consumes:
+      - application/json
+      description: Updates existing bill metadata, status, or item list
+      parameters:
+      - description: Bill ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Bill update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_billing.UpdateBillRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_billing.BillResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update a bill
+      tags:
+      - Billing
+  /health:
+    get:
+      description: Returns server liveness status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: System health check
+      tags:
+      - Health
+  /live:
+    get:
+      description: Returns liveness probe status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: System liveness check
+      tags:
+      - Health
+  /ready:
+    get:
+      description: Returns readiness status for handling traffic
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: System readiness check
+      tags:
+      - Health
+schemes:
+- http
+- https
+swagger: "2.0"

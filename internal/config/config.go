@@ -22,6 +22,7 @@ type DatabaseConfig struct {
 	Username        string        `mapstructure:"username"`
 	Password        string        `mapstructure:"password"`
 	Name            string        `mapstructure:"name"`
+	SSLMode         string        `mapstructure:"ssl_mode"`
 	MaxOpenConns    int           `mapstructure:"max_open_conns"`
 	MaxIdleConns    int           `mapstructure:"max_idle_conns"`
 	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime"`

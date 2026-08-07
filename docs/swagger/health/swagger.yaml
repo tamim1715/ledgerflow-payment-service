@@ -1,0 +1,49 @@
+info:
+  contact: {}
+paths:
+  /health:
+    get:
+      description: Returns server liveness status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: System health check
+      tags:
+      - Health
+  /live:
+    get:
+      description: Returns liveness probe status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: System liveness check
+      tags:
+      - Health
+  /ready:
+    get:
+      description: Returns readiness status for handling traffic
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: System readiness check
+      tags:
+      - Health
+swagger: "2.0"

@@ -16,12 +16,12 @@ import (
 
 func (a *Application) Run() error {
 	// Register routes
-	router.RegisterRoutes(a.Engine, a.Handlers)
+	router.RegisterRoutes(a.Engine, a.Modules)
 
 	// Determine port
 	port := a.Config.Server.Port
 	if port == 0 {
-		port = 8080
+		port = 8081
 	}
 
 	// Create HTTP server with timeouts
@@ -80,4 +80,3 @@ func (a *Application) Run() error {
 
 	return nil
 }
-

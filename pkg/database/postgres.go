@@ -5,23 +5,29 @@ import (
 	"ledgerflow-payment-service/internal/config"
 
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
-func NewMySQL(cfg config.DatabaseConfig, logger *zap.Logger) (*sqlx.DB, error) {
+func NewPostgres(cfg config.DatabaseConfig, logger *zap.Logger) (*sqlx.DB, error) {
+	sslMode := cfg.SSLMode
+	if sslMode == "" {
+		sslMode = "disable"
+	}
 
 	dsn := fmt.Sprintf(
-		"%s:%s@tcp(%s:%d)/%s?parseTime=true&multiStatements=false&charset=utf8mb4&collation=utf8mb4_unicode_ci",
-		cfg.Username,
-		cfg.Password,
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		cfg.Host,
 		cfg.Port,
+		cfg.Username,
+		cfg.Password,
 		cfg.Name,
+		sslMode,
 	)
 
-	db, err := sqlx.Open("mysql", dsn)
+	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("open mysql connection: %w", err)
+		return nil, fmt.Errorf("open postgres connection: %w", err)
 	}
 
 	db.SetMaxOpenConns(cfg.MaxOpenConns)
@@ -31,11 +37,11 @@ func NewMySQL(cfg config.DatabaseConfig, logger *zap.Logger) (*sqlx.DB, error) {
 
 	if err := db.Ping(); err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("ping mysql: %w", err)
+		return nil, fmt.Errorf("ping postgres: %w", err)
 	}
 
 	logger.Info(
-		"MySQL connected",
+		"PostgreSQL connected",
 		zap.String("host", cfg.Host),
 		zap.Int("port", cfg.Port),
 		zap.String("database", cfg.Name),
