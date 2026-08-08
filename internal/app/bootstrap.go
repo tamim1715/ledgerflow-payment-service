@@ -6,6 +6,7 @@ import (
 	"ledgerflow-payment-service/internal/middleware"
 	"ledgerflow-payment-service/internal/modules/billing"
 	"ledgerflow-payment-service/internal/modules/health"
+	"ledgerflow-payment-service/internal/modules/payment"
 	"ledgerflow-payment-service/internal/router"
 	"ledgerflow-payment-service/pkg/database"
 	"ledgerflow-payment-service/pkg/logger"
@@ -54,9 +55,14 @@ func NewApplication() (*Application, error) {
 	billingSvc := billing.NewService(billingRepo, log)
 	billingHandler := billing.NewHandler(billingSvc)
 
+	paymentRepo := payment.NewRepository(db)
+	paymentSvc := payment.NewService(paymentRepo, log)
+	paymentHandler := payment.NewHandler(paymentSvc)
+
 	modules := &router.Modules{
 		Health:  healthHandler,
 		Billing: billingHandler,
+		Payment: paymentHandler,
 	}
 
 	app := &Application{
