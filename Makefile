@@ -40,7 +40,7 @@ swagger-health:
 swagger-payment:
 	@echo "Generating Payment module Swagger documentation..."
 	@mkdir -p docs/swagger/payment
-	@$(SWAG) init -g model.go --dir ./internal/modules/payment -o docs/swagger/payment --parseDependency --parseInternal
+	@$(SWAG) init -g handler.go --dir ./internal/modules/payment -o docs/swagger/payment --parseDependency --parseInternal
 
 ## build: Build application binary
 build:
