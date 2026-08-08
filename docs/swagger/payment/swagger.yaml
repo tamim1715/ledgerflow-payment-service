@@ -1,4 +1,789 @@
+definitions:
+  payment.CancelPaymentRequest:
+    properties:
+      reason:
+        example: Customer requested cancellation
+        type: string
+    type: object
+  payment.CreateCustomerRequest:
+    properties:
+      email:
+        example: customer@example.com
+        type: string
+      name:
+        example: Alex Morgan
+        type: string
+      phone:
+        example: "+1234567890"
+        type: string
+      stripe_customer_id:
+        example: cus_123abc
+        type: string
+    required:
+    - email
+    type: object
+  payment.CreatePaymentRequest:
+    properties:
+      amount:
+        example: 99.99
+        type: number
+      currency:
+        example: USD
+        type: string
+      customer_id:
+        example: cust_987654
+        type: string
+      description:
+        example: 'Payment for Invoice #1234'
+        type: string
+      idempotency_key:
+        example: ik_987654321
+        type: string
+      metadata:
+        type: object
+      provider:
+        allOf:
+        - $ref: '#/definitions/payment.PaymentProvider'
+        example: STRIPE
+    required:
+    - amount
+    - currency
+    - customer_id
+    - idempotency_key
+    - provider
+    type: object
+  payment.CreateRefundRequest:
+    properties:
+      amount:
+        example: 25
+        type: number
+      payment_id:
+        example: pay_123abc456def
+        type: string
+      reason:
+        example: Customer requested cancellation
+        type: string
+    required:
+    - amount
+    - payment_id
+    type: object
+  payment.CustomerListResponse:
+    properties:
+      customers:
+        items:
+          $ref: '#/definitions/payment.CustomerResponse'
+        type: array
+      limit:
+        example: 10
+        type: integer
+      page:
+        example: 1
+        type: integer
+      total:
+        example: 2
+        type: integer
+    type: object
+  payment.CustomerResponse:
+    properties:
+      created_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+      email:
+        example: customer@example.com
+        type: string
+      id:
+        example: cust_987654
+        type: string
+      name:
+        example: Alex Morgan
+        type: string
+      phone:
+        example: "+1234567890"
+        type: string
+      stripe_customer_id:
+        example: cus_123abc
+        type: string
+      updated_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+    type: object
+  payment.PaymentDetailResponse:
+    properties:
+      amount:
+        example: 99.99
+        type: number
+      created_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+      currency:
+        example: USD
+        type: string
+      customer_id:
+        example: cust_987654
+        type: string
+      description:
+        example: 'Payment for Invoice #1234'
+        type: string
+      id:
+        example: pay_123abc456def
+        type: string
+      idempotency_key:
+        example: ik_987654321
+        type: string
+      metadata:
+        type: object
+      payment_url:
+        example: https://checkout.stripe.com/pay/cs_test_123
+        type: string
+      provider:
+        allOf:
+        - $ref: '#/definitions/payment.PaymentProvider'
+        example: STRIPE
+      refunds:
+        items:
+          $ref: '#/definitions/payment.RefundResponse'
+        type: array
+      status:
+        allOf:
+        - $ref: '#/definitions/payment.PaymentStatus'
+        example: SUCCEEDED
+      transactions:
+        items:
+          $ref: '#/definitions/payment.TransactionResponse'
+        type: array
+      updated_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+    type: object
+  payment.PaymentListResponse:
+    properties:
+      limit:
+        example: 10
+        type: integer
+      page:
+        example: 1
+        type: integer
+      payments:
+        items:
+          $ref: '#/definitions/payment.PaymentResponse'
+        type: array
+      total:
+        example: 10
+        type: integer
+    type: object
+  payment.PaymentProvider:
+    enum:
+    - STRIPE
+    - SSLCOMMERZ
+    - PAYPAL
+    - BKASH
+    type: string
+    x-enum-varnames:
+    - ProviderStripe
+    - ProviderSSLCommerz
+    - ProviderPayPal
+    - ProviderBKash
+  payment.PaymentResponse:
+    properties:
+      amount:
+        example: 99.99
+        type: number
+      created_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+      currency:
+        example: USD
+        type: string
+      customer_id:
+        example: cust_987654
+        type: string
+      description:
+        example: 'Payment for Invoice #1234'
+        type: string
+      id:
+        example: pay_123abc456def
+        type: string
+      idempotency_key:
+        example: ik_987654321
+        type: string
+      metadata:
+        type: object
+      payment_url:
+        example: https://checkout.stripe.com/pay/cs_test_123
+        type: string
+      provider:
+        allOf:
+        - $ref: '#/definitions/payment.PaymentProvider'
+        example: STRIPE
+      status:
+        allOf:
+        - $ref: '#/definitions/payment.PaymentStatus'
+        example: SUCCEEDED
+      updated_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+    type: object
+  payment.PaymentStatus:
+    enum:
+    - PENDING
+    - PROCESSING
+    - SUCCEEDED
+    - FAILED
+    - CANCELLED
+    - REFUNDED
+    - PARTIALLY_REFUNDED
+    type: string
+    x-enum-varnames:
+    - PaymentStatusPending
+    - PaymentStatusProcessing
+    - PaymentStatusSucceeded
+    - PaymentStatusFailed
+    - PaymentStatusCancelled
+    - PaymentStatusRefunded
+    - PaymentStatusPartiallyRefunded
+  payment.RefundListResponse:
+    properties:
+      limit:
+        example: 10
+        type: integer
+      page:
+        example: 1
+        type: integer
+      refunds:
+        items:
+          $ref: '#/definitions/payment.RefundResponse'
+        type: array
+      total:
+        example: 1
+        type: integer
+    type: object
+  payment.RefundResponse:
+    properties:
+      amount:
+        example: 25
+        type: number
+      created_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+      currency:
+        example: USD
+        type: string
+      id:
+        example: ref_123abc456def
+        type: string
+      payment_id:
+        example: pay_123abc456def
+        type: string
+      provider_refund_id:
+        example: re_stripe_123
+        type: string
+      reason:
+        example: Customer requested cancellation
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/payment.RefundStatus'
+        example: SUCCEEDED
+      updated_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+    type: object
+  payment.RefundStatus:
+    enum:
+    - PENDING
+    - SUCCEEDED
+    - FAILED
+    type: string
+    x-enum-varnames:
+    - RefundStatusPending
+    - RefundStatusSucceeded
+    - RefundStatusFailed
+  payment.TransactionResponse:
+    properties:
+      amount:
+        example: 99.99
+        type: number
+      created_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+      currency:
+        example: USD
+        type: string
+      error_code:
+        type: string
+      error_message:
+        type: string
+      id:
+        example: tx_123abc456def
+        type: string
+      payment_id:
+        example: pay_123abc456def
+        type: string
+      provider_transaction_id:
+        example: ch_stripe_123
+        type: string
+      raw_response:
+        type: object
+      status:
+        allOf:
+        - $ref: '#/definitions/payment.TransactionStatus'
+        example: SUCCESS
+      type:
+        allOf:
+        - $ref: '#/definitions/payment.TransactionType'
+        example: CHARGE
+    type: object
+  payment.TransactionStatus:
+    enum:
+    - SUCCESS
+    - FAILED
+    - PENDING
+    type: string
+    x-enum-varnames:
+    - TxStatusSuccess
+    - TxStatusFailed
+    - TxStatusPending
+  payment.TransactionType:
+    enum:
+    - CHARGE
+    - REFUND
+    - REVERSAL
+    type: string
+    x-enum-varnames:
+    - TxTypeCharge
+    - TxTypeRefund
+    - TxTypeReversal
 info:
   contact: {}
-paths: {}
+paths:
+  /api/v1/payments:
+    get:
+      description: Retrieves paginated list of payments with optional customer, status,
+        and provider filters
+      parameters:
+      - description: Filter by Customer ID
+        in: query
+        name: customer_id
+        type: string
+      - description: Filter by Payment status
+        in: query
+        name: status
+        type: string
+      - description: Filter by Provider (STRIPE, SSLCOMMERZ, PAYPAL, BKASH)
+        in: query
+        name: provider
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/payment.PaymentListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List payments
+      tags:
+      - Payments
+    post:
+      consumes:
+      - application/json
+      description: Creates a new payment, executes idempotency check, initiates gateway
+        transaction, and records ledger entries
+      parameters:
+      - description: Payment initiation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/payment.CreatePaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/payment.PaymentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Customer not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create and initiate a payment
+      tags:
+      - Payments
+  /api/v1/payments/{id}:
+    get:
+      description: Fetches comprehensive payment information including transactions
+        and refunds
+      parameters:
+      - description: Payment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/payment.PaymentDetailResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get payment details
+      tags:
+      - Payments
+  /api/v1/payments/{id}/cancel:
+    post:
+      consumes:
+      - application/json
+      description: Cancels a pending or processing payment and records reversal transaction
+      parameters:
+      - description: Payment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Cancellation reason
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/payment.CancelPaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/payment.PaymentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Cancel a payment
+      tags:
+      - Payments
+  /api/v1/payments/{id}/capture:
+    post:
+      description: Captures an authorized or processing payment and transitions status
+        to SUCCEEDED
+      parameters:
+      - description: Payment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/payment.PaymentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Capture or confirm a payment
+      tags:
+      - Payments
+  /api/v1/payments/{id}/refunds:
+    get:
+      description: Fetches all refunds executed against a payment ID
+      parameters:
+      - description: Payment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/payment.RefundListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List refunds for a specific payment
+      tags:
+      - Refunds
+  /api/v1/payments/{id}/transactions:
+    get:
+      description: Fetches audit ledger transaction history for a specific payment
+      parameters:
+      - description: Payment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/payment.TransactionResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List transactions for a payment
+      tags:
+      - Payments
+  /api/v1/payments/customers:
+    get:
+      description: Retrieves paginated list of registered customers
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/payment.CustomerListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List customers
+      tags:
+      - Customers
+    post:
+      consumes:
+      - application/json
+      description: Registers a new customer profile for payment processing
+      parameters:
+      - description: Customer creation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/payment.CreateCustomerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/payment.CustomerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Customer with email already exists
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a customer
+      tags:
+      - Customers
+  /api/v1/payments/customers/{id}:
+    get:
+      description: Fetches customer profile by customer ID
+      parameters:
+      - description: Customer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/payment.CustomerResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get customer by ID
+      tags:
+      - Customers
+  /api/v1/payments/refunds:
+    post:
+      consumes:
+      - application/json
+      description: Issues a full or partial refund for an existing settled payment
+      parameters:
+      - description: Refund creation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/payment.CreateRefundRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/payment.RefundResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a refund
+      tags:
+      - Refunds
+  /api/v1/payments/refunds/{id}:
+    get:
+      description: Fetches refund details by refund ID
+      parameters:
+      - description: Refund ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/payment.RefundResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get refund by ID
+      tags:
+      - Refunds
 swagger: "2.0"

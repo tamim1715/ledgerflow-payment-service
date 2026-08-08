@@ -3,5 +3,1157 @@
     "info": {
         "contact": {}
     },
-    "paths": {}
+    "paths": {
+        "/api/v1/payments": {
+            "get": {
+                "description": "Retrieves paginated list of payments with optional customer, status, and provider filters",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "List payments",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by Customer ID",
+                        "name": "customer_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by Payment status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by Provider (STRIPE, SSLCOMMERZ, PAYPAL, BKASH)",
+                        "name": "provider",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/payment.PaymentListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a new payment, executes idempotency check, initiates gateway transaction, and records ledger entries",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Create and initiate a payment",
+                "parameters": [
+                    {
+                        "description": "Payment initiation payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/payment.CreatePaymentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/payment.PaymentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Customer not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/customers": {
+            "get": {
+                "description": "Retrieves paginated list of registered customers",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "List customers",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/payment.CustomerListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Registers a new customer profile for payment processing",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Create a customer",
+                "parameters": [
+                    {
+                        "description": "Customer creation payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/payment.CreateCustomerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/payment.CustomerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Customer with email already exists",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/customers/{id}": {
+            "get": {
+                "description": "Fetches customer profile by customer ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Get customer by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Customer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/payment.CustomerResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/refunds": {
+            "post": {
+                "description": "Issues a full or partial refund for an existing settled payment",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Refunds"
+                ],
+                "summary": "Create a refund",
+                "parameters": [
+                    {
+                        "description": "Refund creation payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/payment.CreateRefundRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/payment.RefundResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/refunds/{id}": {
+            "get": {
+                "description": "Fetches refund details by refund ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Refunds"
+                ],
+                "summary": "Get refund by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Refund ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/payment.RefundResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/{id}": {
+            "get": {
+                "description": "Fetches comprehensive payment information including transactions and refunds",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Get payment details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Payment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/payment.PaymentDetailResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/{id}/cancel": {
+            "post": {
+                "description": "Cancels a pending or processing payment and records reversal transaction",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Cancel a payment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Payment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Cancellation reason",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/payment.CancelPaymentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/payment.PaymentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/{id}/capture": {
+            "post": {
+                "description": "Captures an authorized or processing payment and transitions status to SUCCEEDED",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Capture or confirm a payment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Payment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/payment.PaymentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/{id}/refunds": {
+            "get": {
+                "description": "Fetches all refunds executed against a payment ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Refunds"
+                ],
+                "summary": "List refunds for a specific payment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Payment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/payment.RefundListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/{id}/transactions": {
+            "get": {
+                "description": "Fetches audit ledger transaction history for a specific payment",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "List transactions for a payment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Payment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/payment.TransactionResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "payment.CancelPaymentRequest": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "example": "Customer requested cancellation"
+                }
+            }
+        },
+        "payment.CreateCustomerRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "customer@example.com"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Alex Morgan"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+1234567890"
+                },
+                "stripe_customer_id": {
+                    "type": "string",
+                    "example": "cus_123abc"
+                }
+            }
+        },
+        "payment.CreatePaymentRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "currency",
+                "customer_id",
+                "idempotency_key",
+                "provider"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "example": 99.99
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "USD"
+                },
+                "customer_id": {
+                    "type": "string",
+                    "example": "cust_987654"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Payment for Invoice #1234"
+                },
+                "idempotency_key": {
+                    "type": "string",
+                    "example": "ik_987654321"
+                },
+                "metadata": {
+                    "type": "object"
+                },
+                "provider": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/payment.PaymentProvider"
+                        }
+                    ],
+                    "example": "STRIPE"
+                }
+            }
+        },
+        "payment.CreateRefundRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "payment_id"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "example": 25
+                },
+                "payment_id": {
+                    "type": "string",
+                    "example": "pay_123abc456def"
+                },
+                "reason": {
+                    "type": "string",
+                    "example": "Customer requested cancellation"
+                }
+            }
+        },
+        "payment.CustomerListResponse": {
+            "type": "object",
+            "properties": {
+                "customers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/payment.CustomerResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "payment.CustomerResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-08-08T12:00:00Z"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "customer@example.com"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "cust_987654"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Alex Morgan"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+1234567890"
+                },
+                "stripe_customer_id": {
+                    "type": "string",
+                    "example": "cus_123abc"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2026-08-08T12:00:00Z"
+                }
+            }
+        },
+        "payment.PaymentDetailResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "example": 99.99
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-08-08T12:00:00Z"
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "USD"
+                },
+                "customer_id": {
+                    "type": "string",
+                    "example": "cust_987654"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Payment for Invoice #1234"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "pay_123abc456def"
+                },
+                "idempotency_key": {
+                    "type": "string",
+                    "example": "ik_987654321"
+                },
+                "metadata": {
+                    "type": "object"
+                },
+                "payment_url": {
+                    "type": "string",
+                    "example": "https://checkout.stripe.com/pay/cs_test_123"
+                },
+                "provider": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/payment.PaymentProvider"
+                        }
+                    ],
+                    "example": "STRIPE"
+                },
+                "refunds": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/payment.RefundResponse"
+                    }
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/payment.PaymentStatus"
+                        }
+                    ],
+                    "example": "SUCCEEDED"
+                },
+                "transactions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/payment.TransactionResponse"
+                    }
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2026-08-08T12:00:00Z"
+                }
+            }
+        },
+        "payment.PaymentListResponse": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "payments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/payment.PaymentResponse"
+                    }
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 10
+                }
+            }
+        },
+        "payment.PaymentProvider": {
+            "type": "string",
+            "enum": [
+                "STRIPE",
+                "SSLCOMMERZ",
+                "PAYPAL",
+                "BKASH"
+            ],
+            "x-enum-varnames": [
+                "ProviderStripe",
+                "ProviderSSLCommerz",
+                "ProviderPayPal",
+                "ProviderBKash"
+            ]
+        },
+        "payment.PaymentResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "example": 99.99
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-08-08T12:00:00Z"
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "USD"
+                },
+                "customer_id": {
+                    "type": "string",
+                    "example": "cust_987654"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Payment for Invoice #1234"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "pay_123abc456def"
+                },
+                "idempotency_key": {
+                    "type": "string",
+                    "example": "ik_987654321"
+                },
+                "metadata": {
+                    "type": "object"
+                },
+                "payment_url": {
+                    "type": "string",
+                    "example": "https://checkout.stripe.com/pay/cs_test_123"
+                },
+                "provider": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/payment.PaymentProvider"
+                        }
+                    ],
+                    "example": "STRIPE"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/payment.PaymentStatus"
+                        }
+                    ],
+                    "example": "SUCCEEDED"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2026-08-08T12:00:00Z"
+                }
+            }
+        },
+        "payment.PaymentStatus": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "PROCESSING",
+                "SUCCEEDED",
+                "FAILED",
+                "CANCELLED",
+                "REFUNDED",
+                "PARTIALLY_REFUNDED"
+            ],
+            "x-enum-varnames": [
+                "PaymentStatusPending",
+                "PaymentStatusProcessing",
+                "PaymentStatusSucceeded",
+                "PaymentStatusFailed",
+                "PaymentStatusCancelled",
+                "PaymentStatusRefunded",
+                "PaymentStatusPartiallyRefunded"
+            ]
+        },
+        "payment.RefundListResponse": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "refunds": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/payment.RefundResponse"
+                    }
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "payment.RefundResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "example": 25
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-08-08T12:00:00Z"
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "USD"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "ref_123abc456def"
+                },
+                "payment_id": {
+                    "type": "string",
+                    "example": "pay_123abc456def"
+                },
+                "provider_refund_id": {
+                    "type": "string",
+                    "example": "re_stripe_123"
+                },
+                "reason": {
+                    "type": "string",
+                    "example": "Customer requested cancellation"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/payment.RefundStatus"
+                        }
+                    ],
+                    "example": "SUCCEEDED"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2026-08-08T12:00:00Z"
+                }
+            }
+        },
+        "payment.RefundStatus": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "SUCCEEDED",
+                "FAILED"
+            ],
+            "x-enum-varnames": [
+                "RefundStatusPending",
+                "RefundStatusSucceeded",
+                "RefundStatusFailed"
+            ]
+        },
+        "payment.TransactionResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "example": 99.99
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-08-08T12:00:00Z"
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "USD"
+                },
+                "error_code": {
+                    "type": "string"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "tx_123abc456def"
+                },
+                "payment_id": {
+                    "type": "string",
+                    "example": "pay_123abc456def"
+                },
+                "provider_transaction_id": {
+                    "type": "string",
+                    "example": "ch_stripe_123"
+                },
+                "raw_response": {
+                    "type": "object"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/payment.TransactionStatus"
+                        }
+                    ],
+                    "example": "SUCCESS"
+                },
+                "type": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/payment.TransactionType"
+                        }
+                    ],
+                    "example": "CHARGE"
+                }
+            }
+        },
+        "payment.TransactionStatus": {
+            "type": "string",
+            "enum": [
+                "SUCCESS",
+                "FAILED",
+                "PENDING"
+            ],
+            "x-enum-varnames": [
+                "TxStatusSuccess",
+                "TxStatusFailed",
+                "TxStatusPending"
+            ]
+        },
+        "payment.TransactionType": {
+            "type": "string",
+            "enum": [
+                "CHARGE",
+                "REFUND",
+                "REVERSAL"
+            ],
+            "x-enum-varnames": [
+                "TxTypeCharge",
+                "TxTypeRefund",
+                "TxTypeReversal"
+            ]
+        }
+    }
 }
