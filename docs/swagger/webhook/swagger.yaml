@@ -5,12 +5,14 @@ definitions:
     - SSLCOMMERZ
     - PAYPAL
     - BKASH
+    - DEFAULT
     type: string
     x-enum-varnames:
     - ProviderStripe
     - ProviderSSLCommerz
     - ProviderPayPal
     - ProviderBKash
+    - ProviderDefault
   payment.PaymentResponse:
     properties:
       amount:

@@ -1,4 +1,61 @@
 definitions:
+  customer.CreateCustomerRequest:
+    properties:
+      email:
+        example: customer@example.com
+        type: string
+      name:
+        example: Alex Morgan
+        type: string
+      phone:
+        example: "+1234567890"
+        type: string
+      stripe_customer_id:
+        example: cus_123abc
+        type: string
+    required:
+    - email
+    type: object
+  customer.CustomerListResponse:
+    properties:
+      customers:
+        items:
+          $ref: '#/definitions/customer.CustomerResponse'
+        type: array
+      limit:
+        example: 10
+        type: integer
+      page:
+        example: 1
+        type: integer
+      total:
+        example: 2
+        type: integer
+    type: object
+  customer.CustomerResponse:
+    properties:
+      created_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+      email:
+        example: customer@example.com
+        type: string
+      id:
+        example: cust_987654
+        type: string
+      name:
+        example: Alex Morgan
+        type: string
+      phone:
+        example: "+1234567890"
+        type: string
+      stripe_customer_id:
+        example: cus_123abc
+        type: string
+      updated_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+    type: object
   payment.CancelPaymentRequest:
     properties:
       reason:
@@ -74,7 +131,7 @@ definitions:
     properties:
       customers:
         items:
-          $ref: '#/definitions/payment.CustomerResponse'
+          $ref: '#/definitions/customer.CustomerResponse'
         type: array
       limit:
         example: 10
@@ -183,12 +240,14 @@ definitions:
     - SSLCOMMERZ
     - PAYPAL
     - BKASH
+    - DEFAULT
     type: string
     x-enum-varnames:
     - ProviderStripe
     - ProviderSSLCommerz
     - ProviderPayPal
     - ProviderBKash
+    - ProviderDefault
   payment.PaymentResponse:
     properties:
       amount:
@@ -362,9 +421,129 @@ definitions:
     - TxTypeCharge
     - TxTypeRefund
     - TxTypeReversal
+  webhook.WebhookProcessResult:
+    properties:
+      event_id:
+        example: evt_123456789
+        type: string
+      event_type:
+        example: payment_intent.succeeded
+        type: string
+      message:
+        example: Webhook processed successfully
+        type: string
+      payment:
+        $ref: '#/definitions/payment.PaymentResponse'
+      provider:
+        example: STRIPE
+        type: string
+      status:
+        example: PROCESSED
+        type: string
+    type: object
 info:
   contact: {}
 paths:
+  /api/v1/customers:
+    get:
+      description: Retrieves paginated list of registered customers
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/customer.CustomerListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List customers
+      tags:
+      - Customers
+    post:
+      consumes:
+      - application/json
+      description: Registers a new customer profile for payment processing
+      parameters:
+      - description: Customer creation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/customer.CreateCustomerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/customer.CustomerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Customer with email already exists
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a customer
+      tags:
+      - Customers
+  /api/v1/customers/{id}:
+    get:
+      description: Fetches customer profile by customer ID
+      parameters:
+      - description: Customer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/customer.CustomerResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get customer by ID
+      tags:
+      - Customers
   /api/v1/payments:
     get:
       description: Retrieves paginated list of payments with optional customer, status,
@@ -795,4 +974,75 @@ paths:
       summary: Get refund by ID
       tags:
       - Refunds
+  /api/v1/webhooks/{provider}:
+    post:
+      consumes:
+      - application/json
+      - application/x-www-form-urlencoded
+      description: Receives asynchronous webhooks from payment gateways (Stripe, SSLCommerz,
+        bKash, PayPal), verifies event deduplication, normalizes payloads, and updates
+        payment state and linked invoice
+      parameters:
+      - description: Payment Gateway Provider (STRIPE, SSLCOMMERZ, BKASH, PAYPAL)
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/webhook.WebhookProcessResult'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Ingest payment provider webhook event
+      tags:
+      - Webhooks
+  /api/v1/webhooks/events:
+    get:
+      description: Returns paginated audit log of ingested webhook events
+      parameters:
+      - description: Filter by provider
+        in: query
+        name: provider
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List received webhook events
+      tags:
+      - Webhooks
 swagger: "2.0"

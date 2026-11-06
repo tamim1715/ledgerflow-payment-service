@@ -6,15 +6,17 @@ import (
 	"errors"
 	"fmt"
 
+	"ledgerflow-payment-service/internal/modules/payment/customer"
+
 	"github.com/jmoiron/sqlx"
 )
 
 var (
 	ErrPaymentNotFound         = errors.New("payment not found")
 	ErrRefundNotFound          = errors.New("refund not found")
-	ErrCustomerNotFound        = errors.New("customer not found")
+	ErrCustomerNotFound        = customer.ErrCustomerNotFound
 	ErrDuplicateIdempotencyKey = errors.New("duplicate idempotency key")
-	ErrCustomerAlreadyExists   = errors.New("customer with this email already exists")
+	ErrCustomerAlreadyExists   = customer.ErrCustomerAlreadyExists
 	ErrBillNotFound            = errors.New("bill not found")
 	ErrInvalidPaymentRequest   = errors.New("invalid payment request")
 )
@@ -45,11 +47,6 @@ type IRepository interface {
 
 	CreateTransaction(ctx context.Context, tx *Transaction) error
 	ListTransactionsByPaymentID(ctx context.Context, paymentID string) ([]Transaction, error)
-
-	CreateCustomer(ctx context.Context, customer *Customer) error
-	GetCustomerByID(ctx context.Context, id string) (*Customer, error)
-	GetCustomerByEmail(ctx context.Context, email string) (*Customer, error)
-	ListCustomers(ctx context.Context, page int, limit int) ([]Customer, int, error)
 }
 
 type repository struct {
@@ -463,73 +460,6 @@ func (r *repository) ListTransactionsByPaymentID(ctx context.Context, paymentID 
 		return nil, fmt.Errorf("list transactions by payment id: %w", err)
 	}
 	return transactions, nil
-}
-
-func (r *repository) CreateCustomer(ctx context.Context, customer *Customer) error {
-	query := `
-		INSERT INTO customers (
-			id, email, name, phone, stripe_customer_id, created_at, updated_at
-		) VALUES (
-			:id, :email, :name, :phone, :stripe_customer_id, :created_at, :updated_at
-		)
-	`
-	_, err := r.db.NamedExecContext(ctx, query, customer)
-	if err != nil {
-		return fmt.Errorf("insert customer: %w", err)
-	}
-	return nil
-}
-
-func (r *repository) GetCustomerByID(ctx context.Context, id string) (*Customer, error) {
-	var customer Customer
-	query := `SELECT * FROM customers WHERE id = $1`
-	err := r.db.GetContext(ctx, &customer, query, id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrCustomerNotFound
-		}
-		return nil, fmt.Errorf("get customer by id: %w", err)
-	}
-	return &customer, nil
-}
-
-func (r *repository) GetCustomerByEmail(ctx context.Context, email string) (*Customer, error) {
-	var customer Customer
-	query := `SELECT * FROM customers WHERE email = $1`
-	err := r.db.GetContext(ctx, &customer, query, email)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrCustomerNotFound
-		}
-		return nil, fmt.Errorf("get customer by email: %w", err)
-	}
-	return &customer, nil
-}
-
-func (r *repository) ListCustomers(ctx context.Context, page int, limit int) ([]Customer, int, error) {
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 100 {
-		limit = 10
-	}
-	offset := (page - 1) * limit
-
-	var total int
-	countQuery := `SELECT COUNT(*) FROM customers`
-	err := r.db.GetContext(ctx, &total, countQuery)
-	if err != nil {
-		return nil, 0, fmt.Errorf("count customers: %w", err)
-	}
-
-	var customers []Customer
-	selectQuery := `SELECT * FROM customers ORDER BY created_at DESC LIMIT $1 OFFSET $2`
-	err = r.db.SelectContext(ctx, &customers, selectQuery, limit, offset)
-	if err != nil {
-		return nil, 0, fmt.Errorf("list customers: %w", err)
-	}
-
-	return customers, total, nil
 }
 
 func (r *repository) ListPaymentsByBillID(ctx context.Context, billID string) ([]Payment, error) {

@@ -771,13 +771,15 @@ const docTemplate = `{
                 "STRIPE",
                 "SSLCOMMERZ",
                 "PAYPAL",
-                "BKASH"
+                "BKASH",
+                "DEFAULT"
             ],
             "x-enum-varnames": [
                 "ProviderStripe",
                 "ProviderSSLCommerz",
                 "ProviderPayPal",
-                "ProviderBKash"
+                "ProviderBKash",
+                "ProviderDefault"
             ]
         },
         "payment.PaymentResponse": {

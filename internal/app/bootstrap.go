@@ -7,7 +7,8 @@ import (
 	"ledgerflow-payment-service/internal/modules/billing"
 	"ledgerflow-payment-service/internal/modules/health"
 	"ledgerflow-payment-service/internal/modules/payment"
-	"ledgerflow-payment-service/internal/modules/webhook"
+	"ledgerflow-payment-service/internal/modules/payment/customer"
+	"ledgerflow-payment-service/internal/modules/payment/webhook"
 	"ledgerflow-payment-service/internal/router"
 	"ledgerflow-payment-service/pkg/database"
 	"ledgerflow-payment-service/pkg/logger"
@@ -49,11 +50,15 @@ func NewApplication() (*Application, error) {
 	engine.Use(middleware.ZapLogger(log))
 	engine.Use(middleware.ZapRecovery(log))
 
-	// Instantiate Modules
+	// Instantiate Modules and Submodules
 	healthHandler := health.NewHandler()
 
+	customerRepo := customer.NewRepository(db)
+	customerSvc := customer.NewService(customerRepo, log)
+	customerHandler := customer.NewHandler(customerSvc)
+
 	paymentRepo := payment.NewRepository(db)
-	paymentSvc := payment.NewService(paymentRepo, log)
+	paymentSvc := payment.NewService(paymentRepo, customerSvc, log)
 	paymentHandler := payment.NewHandler(paymentSvc)
 
 	billingRepo := billing.NewRepository(db)
@@ -65,10 +70,11 @@ func NewApplication() (*Application, error) {
 	webhookHandler := webhook.NewHandler(webhookSvc)
 
 	modules := &router.Modules{
-		Health:  healthHandler,
-		Billing: billingHandler,
-		Payment: paymentHandler,
-		Webhook: webhookHandler,
+		Health:   healthHandler,
+		Billing:  billingHandler,
+		Payment:  paymentHandler,
+		Customer: customerHandler,
+		Webhook:  webhookHandler,
 	}
 
 	app := &Application{

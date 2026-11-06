@@ -4,7 +4,8 @@ import (
 	"ledgerflow-payment-service/internal/modules/billing"
 	"ledgerflow-payment-service/internal/modules/health"
 	"ledgerflow-payment-service/internal/modules/payment"
-	"ledgerflow-payment-service/internal/modules/webhook"
+	"ledgerflow-payment-service/internal/modules/payment/customer"
+	"ledgerflow-payment-service/internal/modules/payment/webhook"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -12,10 +13,11 @@ import (
 )
 
 type Modules struct {
-	Health  *health.Handler
-	Billing *billing.Handler
-	Payment *payment.Handler
-	Webhook *webhook.Handler
+	Health   *health.Handler
+	Billing  *billing.Handler
+	Payment  *payment.Handler
+	Customer *customer.Handler
+	Webhook  *webhook.Handler
 }
 
 func RegisterRoutes(
@@ -32,6 +34,10 @@ func RegisterRoutes(
 		billing.RegisterRoutes(v1, modules.Billing)
 		// Payment Module Routes
 		payment.RegisterRoutes(v1, modules.Payment)
+		// Customer Submodule Routes
+		if modules.Customer != nil {
+			customer.RegisterRoutes(v1, modules.Customer)
+		}
 		// Webhook Module Routes
 		webhook.RegisterRoutes(v1, modules.Webhook)
 	}

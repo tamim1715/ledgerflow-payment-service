@@ -16,7 +16,7 @@ func setupTestRouter() (*gin.Engine, *mockRepository) {
 	r := gin.New()
 
 	repo := newMockRepository()
-	svc := NewService(repo, zap.NewNop())
+	svc := newTestService(repo, zap.NewNop())
 	h := NewHandler(svc)
 
 	v1 := r.Group("/api/v1")
@@ -96,7 +96,7 @@ func TestHandler_GetPaymentByID(t *testing.T) {
 	})
 
 	// Create a payment first
-	svc := NewService(repo, zap.NewNop())
+	svc := newTestService(repo, zap.NewNop())
 	payRes, _ := svc.CreatePayment(t.Context(), CreatePaymentRequest{
 		IdempotencyKey: "ik_get_api",
 		CustomerID:     "cust_demo_2",
@@ -134,7 +134,7 @@ func TestHandler_ListPayments(t *testing.T) {
 	router, repo := setupTestRouter()
 
 	_ = repo.CreateCustomer(t.Context(), &Customer{ID: "cust_list", Email: "l@test.com"})
-	svc := NewService(repo, zap.NewNop())
+	svc := newTestService(repo, zap.NewNop())
 	_, _ = svc.CreatePayment(t.Context(), CreatePaymentRequest{
 		IdempotencyKey: "ik_l1",
 		CustomerID:     "cust_list",
@@ -162,7 +162,7 @@ func TestHandler_Refunds(t *testing.T) {
 	router, repo := setupTestRouter()
 
 	_ = repo.CreateCustomer(t.Context(), &Customer{ID: "cust_ref_h", Email: "refh@test.com"})
-	svc := NewService(repo, zap.NewNop())
+	svc := newTestService(repo, zap.NewNop())
 	payRes, _ := svc.CreatePayment(t.Context(), CreatePaymentRequest{
 		IdempotencyKey: "ik_ref_h",
 		CustomerID:     "cust_ref_h",

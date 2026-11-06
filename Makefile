@@ -46,7 +46,7 @@ swagger-payment:
 swagger-webhook:
 	@echo "Generating Webhook module Swagger documentation..."
 	@mkdir -p docs/swagger/webhook
-	@$(SWAG) init -g handler.go --dir ./internal/modules/webhook -o docs/swagger/webhook --parseDependency --parseInternal
+	@$(SWAG) init -g handler.go --dir ./internal/modules/payment/webhook -o docs/swagger/webhook --parseDependency --parseInternal
 
 ## build: Build application binary
 build:

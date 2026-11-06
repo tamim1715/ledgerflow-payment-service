@@ -1,5 +1,9 @@
 package payment
 
+import (
+	"ledgerflow-payment-service/internal/modules/payment/customer"
+)
+
 type CreatePaymentRequest struct {
 	IdempotencyKey string          `json:"idempotency_key" binding:"required" example:"ik_987654321"`
 	BillID         *string         `json:"bill_id,omitempty" example:"bill_123abc456def"`
@@ -83,29 +87,9 @@ type TransactionResponse struct {
 	CreatedAt             string            `json:"created_at" example:"2026-08-08T12:00:00Z"`
 }
 
-type CreateCustomerRequest struct {
-	Email            string `json:"email" binding:"required,email" example:"customer@example.com"`
-	Name             string `json:"name,omitempty" example:"Alex Morgan"`
-	Phone            string `json:"phone,omitempty" example:"+1234567890"`
-	StripeCustomerID string `json:"stripe_customer_id,omitempty" example:"cus_123abc"`
-}
-
-type CustomerResponse struct {
-	ID               string  `json:"id" example:"cust_987654"`
-	Email            string  `json:"email" example:"customer@example.com"`
-	Name             *string `json:"name,omitempty" example:"Alex Morgan"`
-	Phone            *string `json:"phone,omitempty" example:"+1234567890"`
-	StripeCustomerID *string `json:"stripe_customer_id,omitempty" example:"cus_123abc"`
-	CreatedAt        string  `json:"created_at" example:"2026-08-08T12:00:00Z"`
-	UpdatedAt        string  `json:"updated_at" example:"2026-08-08T12:00:00Z"`
-}
-
-type CustomerListResponse struct {
-	Customers []CustomerResponse `json:"customers"`
-	Total     int                `json:"total" example:"2"`
-	Page      int                `json:"page" example:"1"`
-	Limit     int                `json:"limit" example:"10"`
-}
+type CreateCustomerRequest = customer.CreateCustomerRequest
+type CustomerResponse = customer.CustomerResponse
+type CustomerListResponse = customer.CustomerListResponse
 
 type WebhookPaymentEvent struct {
 	PaymentID    string          `json:"payment_id"`

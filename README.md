@@ -114,7 +114,7 @@ LedgerFlow follows a **Modular Clean Architecture** pattern designed for enterpr
 
 ## Project Directory Structure
 
-```
+```text
 ledgerflow-payment-service/
 ├── cmd/
 │   └── server/
@@ -124,7 +124,8 @@ ledgerflow-payment-service/
 │       ├── all/                    # Consolidated API spec
 │       ├── billing/                # Billing module spec
 │       ├── health/                 # Health module spec
-│       └── payment/                # Payment module spec
+│       ├── payment/                # Payment module spec
+│       └── webhook/                # Webhook module spec
 ├── internal/
 │   ├── app/
 │   │   ├── application.go          # Application structure definition
@@ -147,26 +148,40 @@ ledgerflow-payment-service/
 │   │   ├── health/                 # Health probe module
 │   │   │   ├── handler.go          # Liveness & readiness probes
 │   │   │   └── routes.go           # Route registration
-│   │   ├── payment/                # Payment processing module
-│   │   │   ├── dto.go              # Payment, Refund & Customer DTOs
-│   │   │   ├── gateway.go          # Multi-gateway implementation (Stripe, SSLCommerz, PayPal, bKash)
-│   │   │   ├── gateway_test.go     # Gateway test suite
-│   │   │   ├── handler.go          # REST handlers & annotations
-│   │   │   ├── handler_test.go     # HTTP handler test suite
-│   │   │   ├── model.go            # Domain models (Payment, Transaction, Refund, Customer)
-│   │   │   ├── repository.go       # PostgreSQL database queries
-│   │   │   ├── routes.go           # Route registration
-│   │   │   ├── service.go          # Payment workflow orchestration
-│   │   │   └── service_test.go     # Service business logic test suite
-│   │   └── webhook/                # Dedicated Asynchronous Webhook Module
-│   │       ├── dto.go              # Normalized event DTOs
-│   │       ├── handler.go          # Webhook ingestion & event listing endpoints
-│   │       ├── model.go            # WebhookEvent audit domain model
-│   │       ├── parser.go           # Multi-provider parsers (Stripe, SSLCommerz, bKash, PayPal)
-│   │       ├── repository.go       # Event audit logging & idempotency database queries
-│   │       ├── routes.go           # Route registration (/api/v1/webhooks)
-│   │       ├── service.go          # Webhook dispatching & payment status synchronization
-│   │       └── service_test.go     # Webhook unit test suite
+│   │   └── payment/                # Payment Domain (Clean Domain with Submodules)
+│   │       ├── customer/           # Customer Submodule
+│   │       │   ├── dto.go          # Customer DTOs
+│   │       │   ├── handler.go      # Customer HTTP endpoints
+│   │       │   ├── model.go        # Customer domain model
+│   │       │   ├── repository.go   # Customer database operations
+│   │       │   ├── routes.go       # Customer route registration
+│   │       │   ├── service.go      # Customer business logic
+│   │       │   └── service_test.go # Customer unit test suite
+│   │       ├── gateway/            # Gateway Submodule (Provider Abstractions)
+│   │       │   ├── bkash.go        # bKash payment & refund provider
+│   │       │   ├── default.go      # Default/mock gateway fallback
+│   │       │   ├── gateway.go      # Gateway interface & factory
+│   │       │   ├── gateway_test.go # Multi-gateway test suite
+│   │       │   ├── paypal.go       # PayPal payment & refund provider
+│   │       │   ├── sslcommerz.go   # SSLCommerz payment & refund provider
+│   │       │   └── stripe.go       # Stripe payment & refund provider
+│   │       ├── webhook/            # Webhook Submodule (Multi-provider Normalizer)
+│   │       │   ├── dto.go          # Normalized webhook event DTOs
+│   │       │   ├── handler.go      # Webhook ingestion & list endpoints
+│   │       │   ├── model.go        # Webhook audit log model
+│   │       │   ├── parser.go       # Multi-provider parsers (Stripe, SSLCommerz, bKash, PayPal)
+│   │       │   ├── repository.go   # Webhook deduplication repository
+│   │       │   ├── routes.go       # Webhook route registration
+│   │       │   ├── service.go      # Webhook processing & status sync
+│   │       │   └── service_test.go # Multi-payload webhook test suite
+│   │       ├── dto.go              # Payment & Refund DTOs
+│   │       ├── handler.go          # Payment HTTP handlers
+│   │       ├── handler_test.go     # Payment HTTP handler test suite
+│   │       ├── model.go            # Payment, Transaction, Refund models
+│   │       ├── repository.go       # Payment & Transaction queries
+│   │       ├── routes.go           # Payment route registration
+│   │       ├── service.go          # Payment workflow orchestration
+│   │       └── service_test.go     # Payment service test suite
 │   └── router/
 │       └── router.go               # Global routing & Swagger UI mountings
 ├── migrations/

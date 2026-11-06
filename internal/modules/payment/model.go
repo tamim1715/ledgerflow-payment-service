@@ -2,17 +2,12 @@ package payment
 
 import (
 	"time"
+
+	"ledgerflow-payment-service/internal/modules/payment/customer"
+	"ledgerflow-payment-service/internal/modules/payment/gateway"
 )
 
-type Customer struct {
-	ID               string    `db:"id" json:"id"`
-	Email            string    `db:"email" json:"email"`
-	Name             *string   `db:"name" json:"name,omitempty"`
-	Phone            *string   `db:"phone" json:"phone,omitempty"`
-	StripeCustomerID *string   `db:"stripe_customer_id" json:"stripe_customer_id,omitempty"`
-	CreatedAt        time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt        time.Time `db:"updated_at" json:"updated_at"`
-}
+type Customer = customer.Customer
 
 type PaymentStatus string
 
@@ -26,13 +21,14 @@ const (
 	PaymentStatusPartiallyRefunded PaymentStatus = "PARTIALLY_REFUNDED"
 )
 
-type PaymentProvider string
+type PaymentProvider = gateway.Provider
 
 const (
-	ProviderStripe     PaymentProvider = "STRIPE"
-	ProviderSSLCommerz PaymentProvider = "SSLCOMMERZ"
-	ProviderPayPal     PaymentProvider = "PAYPAL"
-	ProviderBKash      PaymentProvider = "BKASH"
+	ProviderStripe     = gateway.ProviderStripe
+	ProviderSSLCommerz = gateway.ProviderSSLCommerz
+	ProviderPayPal     = gateway.ProviderPayPal
+	ProviderBKash      = gateway.ProviderBKash
+	ProviderDefault    = gateway.ProviderDefault
 )
 
 type Payment struct {

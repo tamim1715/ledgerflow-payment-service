@@ -6,8 +6,18 @@ import (
 	"testing"
 	"time"
 
+	"ledgerflow-payment-service/internal/modules/payment/customer"
+
 	"go.uber.org/zap"
 )
+
+func newTestService(repo *mockRepository, logger *zap.Logger) IService {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	custSvc := customer.NewService(repo, logger)
+	return NewService(repo, custSvc, logger)
+}
 
 // In-memory mock repository for unit testing
 type mockRepository struct {
@@ -209,7 +219,7 @@ func (m *mockRepository) GetBillSummary(ctx context.Context, billID string) (*Bi
 func TestCreatePayment_Success(t *testing.T) {
 	repo := newMockRepository()
 	logger := zap.NewNop()
-	svc := NewService(repo, logger)
+	svc := newTestService(repo, logger)
 	ctx := context.Background()
 
 	// Seed customer
@@ -257,7 +267,7 @@ func TestCreatePayment_Success(t *testing.T) {
 
 func TestCreatePayment_CustomerNotFound(t *testing.T) {
 	repo := newMockRepository()
-	svc := NewService(repo, zap.NewNop())
+	svc := newTestService(repo, zap.NewNop())
 	ctx := context.Background()
 
 	req := CreatePaymentRequest{
@@ -276,7 +286,7 @@ func TestCreatePayment_CustomerNotFound(t *testing.T) {
 
 func TestGetPaymentByID(t *testing.T) {
 	repo := newMockRepository()
-	svc := NewService(repo, zap.NewNop())
+	svc := newTestService(repo, zap.NewNop())
 	ctx := context.Background()
 
 	_ = repo.CreateCustomer(ctx, &Customer{ID: "cust_1", Email: "c1@test.com"})
@@ -312,7 +322,7 @@ func TestGetPaymentByID(t *testing.T) {
 
 func TestListPayments(t *testing.T) {
 	repo := newMockRepository()
-	svc := NewService(repo, zap.NewNop())
+	svc := newTestService(repo, zap.NewNop())
 	ctx := context.Background()
 
 	_ = repo.CreateCustomer(ctx, &Customer{ID: "cust_list", Email: "list@test.com"})
@@ -338,7 +348,7 @@ func TestListPayments(t *testing.T) {
 
 func TestProcessRefund_FullAndPartial(t *testing.T) {
 	repo := newMockRepository()
-	svc := NewService(repo, zap.NewNop())
+	svc := newTestService(repo, zap.NewNop())
 	ctx := context.Background()
 
 	_ = repo.CreateCustomer(ctx, &Customer{ID: "cust_ref", Email: "ref@test.com"})
@@ -411,7 +421,7 @@ func TestProcessRefund_FullAndPartial(t *testing.T) {
 
 func TestCancelPayment(t *testing.T) {
 	repo := newMockRepository()
-	svc := NewService(repo, zap.NewNop())
+	svc := newTestService(repo, zap.NewNop())
 	ctx := context.Background()
 
 	_ = repo.CreateCustomer(ctx, &Customer{ID: "cust_c", Email: "c@test.com"})
@@ -449,7 +459,7 @@ func TestCancelPayment(t *testing.T) {
 
 func TestCustomerManagement(t *testing.T) {
 	repo := newMockRepository()
-	svc := NewService(repo, zap.NewNop())
+	svc := newTestService(repo, zap.NewNop())
 	ctx := context.Background()
 
 	// 1. Create customer
@@ -494,7 +504,7 @@ func TestCustomerManagement(t *testing.T) {
 
 func TestPaymentWithLinkedBill(t *testing.T) {
 	repo := newMockRepository()
-	svc := NewService(repo, zap.NewNop())
+	svc := newTestService(repo, zap.NewNop())
 	ctx := context.Background()
 
 	// 1. Seed customer and bill
@@ -566,7 +576,7 @@ func TestPaymentWithLinkedBill(t *testing.T) {
 
 func TestProcessWebhookEvent_TransitionsPayment(t *testing.T) {
 	repo := newMockRepository()
-	svc := NewService(repo, zap.NewNop())
+	svc := newTestService(repo, zap.NewNop())
 	ctx := context.Background()
 
 	// 1. Seed pending payment

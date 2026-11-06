@@ -1,4 +1,4 @@
-package payment
+package gateway
 
 import (
 	"context"
@@ -7,14 +7,14 @@ import (
 
 func TestNewGateway(t *testing.T) {
 	tests := []struct {
-		provider PaymentProvider
+		provider Provider
 		name     string
 	}{
 		{ProviderStripe, "Stripe"},
 		{ProviderSSLCommerz, "SSLCommerz"},
 		{ProviderPayPal, "PayPal"},
 		{ProviderBKash, "bKash"},
-		{PaymentProvider("UNKNOWN"), "Default"},
+		{Provider("UNKNOWN"), "Default"},
 	}
 
 	for _, tt := range tests {
@@ -29,35 +29,31 @@ func TestNewGateway(t *testing.T) {
 
 func TestGatewayInitiatePayment(t *testing.T) {
 	ctx := context.Background()
-	customer := &Customer{
-		ID:    "cust_123",
-		Email: "test@example.com",
-	}
 
 	tests := []struct {
-		provider PaymentProvider
+		provider Provider
 	}{
 		{ProviderStripe},
 		{ProviderSSLCommerz},
 		{ProviderPayPal},
 		{ProviderBKash},
-		{PaymentProvider("GENERIC")},
+		{Provider("GENERIC")},
 	}
 
 	for _, tt := range tests {
 		t.Run(string(tt.provider), func(t *testing.T) {
 			gw := NewGateway(tt.provider)
-			payment := &Payment{
-				ID:             "pay_test123",
+			input := PaymentInput{
+				PaymentID:      "pay_test123",
 				IdempotencyKey: "ik_test123",
-				CustomerID:     customer.ID,
+				CustomerID:     "cust_123",
+				CustomerEmail:  "test@example.com",
+				CustomerName:   "Test User",
 				Amount:         150.50,
 				Currency:       "USD",
-				Provider:       tt.provider,
-				Status:         PaymentStatusProcessing,
 			}
 
-			result, err := gw.InitiatePayment(ctx, payment, customer)
+			result, err := gw.InitiatePayment(ctx, input)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -67,11 +63,8 @@ func TestGatewayInitiatePayment(t *testing.T) {
 			if result.PaymentURL == nil || *result.PaymentURL == "" {
 				t.Errorf("expected PaymentURL to be non-empty")
 			}
-			if result.Status != TxStatusSuccess {
-				t.Errorf("expected TxStatusSuccess, got %v", result.Status)
-			}
-			if result.PaymentStatus != PaymentStatusSucceeded {
-				t.Errorf("expected PaymentStatusSucceeded, got %v", result.PaymentStatus)
+			if !result.Success {
+				t.Errorf("expected Success to be true")
 			}
 			if result.RawResponse == nil {
 				t.Errorf("expected RawResponse to be populated")
@@ -84,41 +77,36 @@ func TestGatewayProcessRefund(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		provider PaymentProvider
+		provider Provider
 	}{
 		{ProviderStripe},
 		{ProviderSSLCommerz},
 		{ProviderPayPal},
 		{ProviderBKash},
-		{PaymentProvider("GENERIC")},
+		{Provider("GENERIC")},
 	}
 
 	for _, tt := range tests {
 		t.Run(string(tt.provider), func(t *testing.T) {
 			gw := NewGateway(tt.provider)
-			payment := &Payment{
-				ID:       "pay_test123",
-				Amount:   200.00,
-				Currency: "USD",
-				Provider: tt.provider,
-				Status:   PaymentStatusSucceeded,
-			}
-			refund := &Refund{
-				ID:        "ref_test123",
-				PaymentID: payment.ID,
-				Amount:    50.00,
-				Currency:  "USD",
+			input := RefundInput{
+				RefundID:     "ref_test123",
+				PaymentID:    "pay_test123",
+				ProviderTxID: "tx_orig123",
+				Amount:       50.25,
+				Currency:     "USD",
+				Reason:       "customer requested",
 			}
 
-			result, err := gw.ProcessRefund(ctx, payment, refund)
+			result, err := gw.ProcessRefund(ctx, input)
 			if err != nil {
-				t.Fatalf("unexpected refund error: %v", err)
+				t.Fatalf("unexpected error: %v", err)
 			}
 			if result.ProviderRefundID == "" {
 				t.Errorf("expected ProviderRefundID to be non-empty")
 			}
-			if result.Status != RefundStatusSucceeded {
-				t.Errorf("expected RefundStatusSucceeded, got %v", result.Status)
+			if !result.Success {
+				t.Errorf("expected Success to be true")
 			}
 			if result.RawResponse == nil {
 				t.Errorf("expected RawResponse to be populated")

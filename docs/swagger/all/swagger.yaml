@@ -337,7 +337,7 @@ definitions:
     properties:
       customers:
         items:
-          $ref: '#/definitions/internal_modules_payment.CustomerResponse'
+          $ref: '#/definitions/ledgerflow-payment-service_internal_modules_payment_customer.CustomerResponse'
         type: array
       limit:
         example: 10
@@ -446,12 +446,14 @@ definitions:
     - SSLCOMMERZ
     - PAYPAL
     - BKASH
+    - DEFAULT
     type: string
     x-enum-varnames:
     - ProviderStripe
     - ProviderSSLCommerz
     - ProviderPayPal
     - ProviderBKash
+    - ProviderDefault
   internal_modules_payment.PaymentResponse:
     properties:
       amount:
@@ -625,7 +627,64 @@ definitions:
     - TxTypeCharge
     - TxTypeRefund
     - TxTypeReversal
-  internal_modules_webhook.WebhookProcessResult:
+  internal_modules_payment_customer.CreateCustomerRequest:
+    properties:
+      email:
+        example: customer@example.com
+        type: string
+      name:
+        example: Alex Morgan
+        type: string
+      phone:
+        example: "+1234567890"
+        type: string
+      stripe_customer_id:
+        example: cus_123abc
+        type: string
+    required:
+    - email
+    type: object
+  internal_modules_payment_customer.CustomerListResponse:
+    properties:
+      customers:
+        items:
+          $ref: '#/definitions/internal_modules_payment_customer.CustomerResponse'
+        type: array
+      limit:
+        example: 10
+        type: integer
+      page:
+        example: 1
+        type: integer
+      total:
+        example: 2
+        type: integer
+    type: object
+  internal_modules_payment_customer.CustomerResponse:
+    properties:
+      created_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+      email:
+        example: customer@example.com
+        type: string
+      id:
+        example: cust_987654
+        type: string
+      name:
+        example: Alex Morgan
+        type: string
+      phone:
+        example: "+1234567890"
+        type: string
+      stripe_customer_id:
+        example: cus_123abc
+        type: string
+      updated_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+    type: object
+  internal_modules_payment_webhook.WebhookProcessResult:
     properties:
       event_id:
         example: evt_123456789
@@ -651,12 +710,14 @@ definitions:
     - SSLCOMMERZ
     - PAYPAL
     - BKASH
+    - DEFAULT
     type: string
     x-enum-varnames:
     - ProviderStripe
     - ProviderSSLCommerz
     - ProviderPayPal
     - ProviderBKash
+    - ProviderDefault
   ledgerflow-payment-service_internal_modules_payment.PaymentResponse:
     properties:
       amount:
@@ -718,6 +779,30 @@ definitions:
     - PaymentStatusCancelled
     - PaymentStatusRefunded
     - PaymentStatusPartiallyRefunded
+  ledgerflow-payment-service_internal_modules_payment_customer.CustomerResponse:
+    properties:
+      created_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+      email:
+        example: customer@example.com
+        type: string
+      id:
+        example: cust_987654
+        type: string
+      name:
+        example: Alex Morgan
+        type: string
+      phone:
+        example: "+1234567890"
+        type: string
+      stripe_customer_id:
+        example: cus_123abc
+        type: string
+      updated_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+    type: object
 host: localhost:8081
 info:
   contact:
@@ -984,6 +1069,106 @@ paths:
       summary: Get payment history for a bill
       tags:
       - Billing
+  /api/v1/customers:
+    get:
+      description: Retrieves paginated list of registered customers
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_payment_customer.CustomerListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List customers
+      tags:
+      - Customers
+    post:
+      consumes:
+      - application/json
+      description: Registers a new customer profile for payment processing
+      parameters:
+      - description: Customer creation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_payment_customer.CreateCustomerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_payment_customer.CustomerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Customer with email already exists
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a customer
+      tags:
+      - Customers
+  /api/v1/customers/{id}:
+    get:
+      description: Fetches customer profile by customer ID
+      parameters:
+      - description: Customer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_payment_customer.CustomerResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get customer by ID
+      tags:
+      - Customers
   /api/v1/payments:
     get:
       description: Retrieves paginated list of payments with optional customer, status,
@@ -1434,7 +1619,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_modules_webhook.WebhookProcessResult'
+            $ref: '#/definitions/internal_modules_payment_webhook.WebhookProcessResult'
         "400":
           description: Bad Request
           schema:

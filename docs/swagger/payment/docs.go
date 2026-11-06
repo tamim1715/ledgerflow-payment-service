@@ -15,6 +15,157 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/customers": {
+            "get": {
+                "description": "Retrieves paginated list of registered customers",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "List customers",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/customer.CustomerListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Registers a new customer profile for payment processing",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Create a customer",
+                "parameters": [
+                    {
+                        "description": "Customer creation payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/customer.CreateCustomerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/customer.CustomerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Customer with email already exists",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/customers/{id}": {
+            "get": {
+                "description": "Fetches customer profile by customer ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Get customer by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Customer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/customer.CustomerResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/payments": {
             "get": {
                 "description": "Retrieves paginated list of payments with optional customer, status, and provider filters",
@@ -658,9 +809,192 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/v1/webhooks/events": {
+            "get": {
+                "description": "Returns paginated audit log of ingested webhook events",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Webhooks"
+                ],
+                "summary": "List received webhook events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by provider",
+                        "name": "provider",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webhooks/{provider}": {
+            "post": {
+                "description": "Receives asynchronous webhooks from payment gateways (Stripe, SSLCommerz, bKash, PayPal), verifies event deduplication, normalizes payloads, and updates payment state and linked invoice",
+                "consumes": [
+                    "application/json",
+                    "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Webhooks"
+                ],
+                "summary": "Ingest payment provider webhook event",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Payment Gateway Provider (STRIPE, SSLCOMMERZ, BKASH, PAYPAL)",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/webhook.WebhookProcessResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "customer.CreateCustomerRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "customer@example.com"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Alex Morgan"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+1234567890"
+                },
+                "stripe_customer_id": {
+                    "type": "string",
+                    "example": "cus_123abc"
+                }
+            }
+        },
+        "customer.CustomerListResponse": {
+            "type": "object",
+            "properties": {
+                "customers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/customer.CustomerResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "customer.CustomerResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-08-08T12:00:00Z"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "customer@example.com"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "cust_987654"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Alex Morgan"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+1234567890"
+                },
+                "stripe_customer_id": {
+                    "type": "string",
+                    "example": "cus_123abc"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2026-08-08T12:00:00Z"
+                }
+            }
+        },
         "payment.CancelPaymentRequest": {
             "type": "object",
             "properties": {
@@ -768,7 +1102,7 @@ const docTemplate = `{
                 "customers": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/payment.CustomerResponse"
+                        "$ref": "#/definitions/customer.CustomerResponse"
                     }
                 },
                 "limit": {
@@ -923,13 +1257,15 @@ const docTemplate = `{
                 "STRIPE",
                 "SSLCOMMERZ",
                 "PAYPAL",
-                "BKASH"
+                "BKASH",
+                "DEFAULT"
             ],
             "x-enum-varnames": [
                 "ProviderStripe",
                 "ProviderSSLCommerz",
                 "ProviderPayPal",
-                "ProviderBKash"
+                "ProviderBKash",
+                "ProviderDefault"
             ]
         },
         "payment.PaymentResponse": {
@@ -1177,6 +1513,34 @@ const docTemplate = `{
                 "TxTypeRefund",
                 "TxTypeReversal"
             ]
+        },
+        "webhook.WebhookProcessResult": {
+            "type": "object",
+            "properties": {
+                "event_id": {
+                    "type": "string",
+                    "example": "evt_123456789"
+                },
+                "event_type": {
+                    "type": "string",
+                    "example": "payment_intent.succeeded"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Webhook processed successfully"
+                },
+                "payment": {
+                    "$ref": "#/definitions/payment.PaymentResponse"
+                },
+                "provider": {
+                    "type": "string",
+                    "example": "STRIPE"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "PROCESSED"
+                }
+            }
         }
     }
 }`

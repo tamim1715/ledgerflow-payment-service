@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"ledgerflow-payment-service/internal/modules/payment/customer"
+	"ledgerflow-payment-service/internal/modules/payment/gateway"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -38,14 +41,16 @@ type IService interface {
 }
 
 type service struct {
-	repo   IRepository
-	logger *zap.Logger
+	repo        IRepository
+	customerSvc customer.IService
+	logger      *zap.Logger
 }
 
-func NewService(repo IRepository, logger *zap.Logger) IService {
+func NewService(repo IRepository, customerSvc customer.IService, logger *zap.Logger) IService {
 	return &service{
-		repo:   repo,
-		logger: logger,
+		repo:        repo,
+		customerSvc: customerSvc,
+		logger:      logger,
 	}
 }
 
@@ -65,7 +70,7 @@ func (s *service) CreatePayment(ctx context.Context, req CreatePaymentRequest) (
 	}
 
 	// 2. Validate Customer exists
-	customer, err := s.repo.GetCustomerByID(ctx, req.CustomerID)
+	customerRes, err := s.customerSvc.GetCustomerModelByID(ctx, req.CustomerID)
 	if err != nil {
 		s.logger.Warn("Payment customer validation failed",
 			zap.String("customer_id", req.CustomerID),
@@ -131,16 +136,50 @@ func (s *service) CreatePayment(ctx context.Context, req CreatePaymentRequest) (
 		UpdatedAt:      now,
 	}
 
-	// 3. Initiate Payment via Gateway Provider
-	gateway := NewGateway(req.Provider)
-	gwResult, err := gateway.InitiatePayment(ctx, payment, customer)
+	// 3. Initiate Payment via Gateway Provider Submodule
+	gatewayInst := gateway.NewGateway(req.Provider)
+	var stripeCustID, custEmail, custName, custPhone string
+	if customerRes != nil {
+		custEmail = customerRes.Email
+		if customerRes.Name != nil {
+			custName = *customerRes.Name
+		}
+		if customerRes.Phone != nil {
+			custPhone = *customerRes.Phone
+		}
+		if customerRes.StripeCustomerID != nil {
+			stripeCustID = *customerRes.StripeCustomerID
+		}
+	}
+
+	gwInput := gateway.PaymentInput{
+		PaymentID:        paymentID,
+		Amount:           req.Amount,
+		Currency:         req.Currency,
+		CustomerID:       req.CustomerID,
+		CustomerEmail:    custEmail,
+		CustomerName:     custName,
+		CustomerPhone:    custPhone,
+		StripeCustomerID: stripeCustID,
+		Description:      req.Description,
+		IdempotencyKey:   req.IdempotencyKey,
+		Metadata:         req.Metadata,
+	}
+
+	gwResult, err := gatewayInst.InitiatePayment(ctx, gwInput)
 	if err != nil {
 		s.logger.Error("Gateway payment initiation error", zap.Error(err))
 		return nil, fmt.Errorf("gateway initiate payment: %w", err)
 	}
 
 	// Update payment status from gateway
-	payment.Status = gwResult.PaymentStatus
+	if gwResult.Success {
+		payment.Status = PaymentStatusSucceeded
+	} else if gwResult.Pending {
+		payment.Status = PaymentStatusProcessing
+	} else {
+		payment.Status = PaymentStatusFailed
+	}
 
 	var rawResponseStr *string
 	if gwResult.RawResponse != nil {
@@ -151,6 +190,15 @@ func (s *service) CreatePayment(ctx context.Context, req CreatePaymentRequest) (
 		}
 	}
 
+	txStatus := TxStatusSuccess
+	if !gwResult.Success {
+		if gwResult.Pending {
+			txStatus = TxStatusPending
+		} else {
+			txStatus = TxStatusFailed
+		}
+	}
+
 	tx := &Transaction{
 		ID:                    fmt.Sprintf("tx_%s", uuid.New().String()[:18]),
 		PaymentID:             paymentID,
@@ -158,7 +206,7 @@ func (s *service) CreatePayment(ctx context.Context, req CreatePaymentRequest) (
 		Type:                  TxTypeCharge,
 		Amount:                req.Amount,
 		Currency:              req.Currency,
-		Status:                gwResult.Status,
+		Status:                txStatus,
 		RawResponse:           rawResponseStr,
 		ErrorCode:             gwResult.ErrorCode,
 		ErrorMessage:          gwResult.ErrorMessage,
@@ -375,16 +423,28 @@ func (s *service) ProcessRefund(ctx context.Context, req CreateRefundRequest) (*
 		UpdatedAt: now,
 	}
 
-	// Process refund with gateway provider
-	gateway := NewGateway(payment.Provider)
-	gwRefundResult, err := gateway.ProcessRefund(ctx, payment, refund)
+	// Process refund with gateway provider submodule
+	gatewayInst := gateway.NewGateway(payment.Provider)
+	gwRefundResult, err := gatewayInst.ProcessRefund(ctx, gateway.RefundInput{
+		RefundID:  refundID,
+		PaymentID: payment.ID,
+		Amount:    req.Amount,
+		Currency:  payment.Currency,
+		Reason:    req.Reason,
+	})
 	if err != nil {
 		s.logger.Error("Gateway refund processing failed", zap.Error(err))
 		return nil, fmt.Errorf("gateway process refund: %w", err)
 	}
 
 	refund.ProviderRefundID = &gwRefundResult.ProviderRefundID
-	refund.Status = gwRefundResult.Status
+	if gwRefundResult.Success {
+		refund.Status = RefundStatusSucceeded
+	} else if gwRefundResult.Pending {
+		refund.Status = RefundStatusPending
+	} else {
+		refund.Status = RefundStatusFailed
+	}
 
 	// Determine new payment status
 	newTotalRefunded := totalRefunded + req.Amount
@@ -569,71 +629,15 @@ func (s *service) ProcessWebhookEvent(ctx context.Context, event WebhookPaymentE
 // ---------------------------------------------------------------------------
 
 func (s *service) CreateCustomer(ctx context.Context, req CreateCustomerRequest) (*CustomerResponse, error) {
-	existing, err := s.repo.GetCustomerByEmail(ctx, req.Email)
-	if err == nil && existing != nil {
-		return nil, ErrCustomerAlreadyExists
-	}
-
-	now := time.Now().UTC()
-	custID := fmt.Sprintf("cust_%s", uuid.New().String()[:12])
-
-	var namePtr *string
-	if req.Name != "" {
-		namePtr = &req.Name
-	}
-	var phonePtr *string
-	if req.Phone != "" {
-		phonePtr = &req.Phone
-	}
-	var stripeIDPtr *string
-	if req.StripeCustomerID != "" {
-		stripeIDPtr = &req.StripeCustomerID
-	}
-
-	customer := &Customer{
-		ID:               custID,
-		Email:            req.Email,
-		Name:             namePtr,
-		Phone:            phonePtr,
-		StripeCustomerID: stripeIDPtr,
-		CreatedAt:        now,
-		UpdatedAt:        now,
-	}
-
-	if err := s.repo.CreateCustomer(ctx, customer); err != nil {
-		s.logger.Error("Failed to create customer", zap.Error(err))
-		return nil, fmt.Errorf("create customer: %w", err)
-	}
-
-	s.logger.Info("Customer created successfully", zap.String("id", customer.ID), zap.String("email", customer.Email))
-	return toCustomerResponse(customer), nil
+	return s.customerSvc.CreateCustomer(ctx, req)
 }
 
 func (s *service) GetCustomerByID(ctx context.Context, id string) (*CustomerResponse, error) {
-	customer, err := s.repo.GetCustomerByID(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	return toCustomerResponse(customer), nil
+	return s.customerSvc.GetCustomerByID(ctx, id)
 }
 
 func (s *service) ListCustomers(ctx context.Context, page int, limit int) (*CustomerListResponse, error) {
-	customers, total, err := s.repo.ListCustomers(ctx, page, limit)
-	if err != nil {
-		return nil, fmt.Errorf("list customers: %w", err)
-	}
-
-	responses := make([]CustomerResponse, len(customers))
-	for i, c := range customers {
-		responses[i] = *toCustomerResponse(&c)
-	}
-
-	return &CustomerListResponse{
-		Customers: responses,
-		Total:     total,
-		Page:      page,
-		Limit:     limit,
-	}, nil
+	return s.customerSvc.ListCustomers(ctx, page, limit)
 }
 
 // ---------------------------------------------------------------------------
@@ -699,13 +703,5 @@ func toTransactionResponse(t *Transaction) *TransactionResponse {
 }
 
 func toCustomerResponse(c *Customer) *CustomerResponse {
-	return &CustomerResponse{
-		ID:               c.ID,
-		Email:            c.Email,
-		Name:             c.Name,
-		Phone:            c.Phone,
-		StripeCustomerID: c.StripeCustomerID,
-		CreatedAt:        c.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:        c.UpdatedAt.Format(time.RFC3339),
-	}
+	return customer.ToCustomerResponse(c)
 }
