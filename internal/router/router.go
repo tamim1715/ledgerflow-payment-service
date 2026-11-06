@@ -42,7 +42,7 @@ func RegisterRoutes(
 		webhook.RegisterRoutes(v1, modules.Webhook)
 	}
 
-	// 3. Serve Static Swagger Documentation for Modules
+	// 3. Serve Static Swagger Documentation for Module
 	r.Static("/docs/swagger", "./docs/swagger")
 
 	// Global Swagger UI endpoint
