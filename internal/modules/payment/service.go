@@ -28,6 +28,9 @@ type IService interface {
 	ListRefunds(ctx context.Context, paymentID string, page int, limit int) (*RefundListResponse, error)
 
 	ListTransactions(ctx context.Context, paymentID string) ([]TransactionResponse, error)
+	ListPaymentsByBillID(ctx context.Context, billID string) ([]PaymentResponse, error)
+
+	HandleWebhook(ctx context.Context, provider PaymentProvider, payload []byte, signature string) (*PaymentResponse, error)
 
 	CreateCustomer(ctx context.Context, req CreateCustomerRequest) (*CustomerResponse, error)
 	GetCustomerByID(ctx context.Context, id string) (*CustomerResponse, error)
@@ -71,6 +74,31 @@ func (s *service) CreatePayment(ctx context.Context, req CreatePaymentRequest) (
 		return nil, ErrCustomerNotFound
 	}
 
+	// 2.1 Validate linked Bill exists and is payable, if bill_id is provided
+	if req.BillID != nil && *req.BillID != "" {
+		bill, err := s.repo.GetBillSummary(ctx, *req.BillID)
+		if err != nil {
+			s.logger.Warn("Payment bill validation failed", zap.String("bill_id", *req.BillID), zap.Error(err))
+			return nil, ErrBillNotFound
+		}
+		if bill.CustomerID != req.CustomerID {
+			return nil, fmt.Errorf("%w: invoice %s belongs to a different customer", ErrInvalidPaymentRequest, *req.BillID)
+		}
+		if bill.Currency != req.Currency {
+			return nil, fmt.Errorf("%w: payment currency %s does not match invoice currency %s", ErrInvalidPaymentRequest, req.Currency, bill.Currency)
+		}
+		if bill.Status == "PAID" {
+			return nil, fmt.Errorf("%w: invoice %s is already fully paid", ErrInvalidPaymentRequest, *req.BillID)
+		}
+		if bill.Status == "CANCELLED" {
+			return nil, fmt.Errorf("%w: cannot process payment for cancelled invoice %s", ErrInvalidPaymentRequest, *req.BillID)
+		}
+		remainingBalance := bill.TotalAmount - bill.PaidAmount
+		if req.Amount > remainingBalance {
+			return nil, fmt.Errorf("%w: payment amount %.2f exceeds remaining balance %.2f", ErrInvalidPaymentRequest, req.Amount, remainingBalance)
+		}
+	}
+
 	now := time.Now().UTC()
 	paymentID := fmt.Sprintf("pay_%s", uuid.New().String()[:18])
 
@@ -91,6 +119,7 @@ func (s *service) CreatePayment(ctx context.Context, req CreatePaymentRequest) (
 	payment := &Payment{
 		ID:             paymentID,
 		IdempotencyKey: req.IdempotencyKey,
+		BillID:         req.BillID,
 		CustomerID:     req.CustomerID,
 		Amount:         req.Amount,
 		Currency:       req.Currency,
@@ -445,6 +474,119 @@ func (s *service) ListTransactions(ctx context.Context, paymentID string) ([]Tra
 	return responses, nil
 }
 
+func (s *service) ListPaymentsByBillID(ctx context.Context, billID string) ([]PaymentResponse, error) {
+	payments, err := s.repo.ListPaymentsByBillID(ctx, billID)
+	if err != nil {
+		return nil, fmt.Errorf("list payments by bill id: %w", err)
+	}
+
+	responses := make([]PaymentResponse, len(payments))
+	for i, p := range payments {
+		responses[i] = *toPaymentResponse(&p, nil)
+	}
+	return responses, nil
+}
+
+func (s *service) HandleWebhook(ctx context.Context, provider PaymentProvider, payload []byte, signature string) (*PaymentResponse, error) {
+	var bodyMap map[string]any
+	if err := json.Unmarshal(payload, &bodyMap); err != nil {
+		return nil, fmt.Errorf("parse webhook json: %w", err)
+	}
+
+	// Extract or generate event identifier for deduplication
+	eventID := fmt.Sprintf("evt_%s_%d", provider, time.Now().UnixNano())
+	if id, ok := bodyMap["id"].(string); ok && id != "" {
+		eventID = id
+	}
+
+	eventType := "payment.succeeded"
+	if t, ok := bodyMap["type"].(string); ok && t != "" {
+		eventType = t
+	} else if ev, ok := bodyMap["event"].(string); ok && ev != "" {
+		eventType = ev
+	}
+
+	// Idempotency check on webhook event
+	isNew, err := s.repo.RecordWebhookEvent(ctx, string(provider), eventID, eventType, string(payload))
+	if err != nil {
+		s.logger.Error("Failed to record webhook event", zap.Error(err))
+		return nil, fmt.Errorf("record webhook event: %w", err)
+	}
+	if !isNew {
+		s.logger.Info("Webhook event already processed (idempotent ignore)",
+			zap.String("provider", string(provider)),
+			zap.String("event_id", eventID),
+		)
+		return nil, nil
+	}
+
+	// Extract target payment ID
+	var paymentID string
+	if pID, ok := bodyMap["payment_id"].(string); ok {
+		paymentID = pID
+	} else if data, ok := bodyMap["data"].(map[string]any); ok {
+		if obj, ok := data["object"].(map[string]any); ok {
+			if meta, ok := obj["metadata"].(map[string]any); ok {
+				if mPID, ok := meta["payment_id"].(string); ok {
+					paymentID = mPID
+				}
+			}
+		}
+	} else if tranID, ok := bodyMap["tran_id"].(string); ok {
+		paymentID = tranID
+	}
+
+	if paymentID == "" {
+		s.logger.Info("Webhook received and logged with no direct payment_id to transition",
+			zap.String("provider", string(provider)),
+			zap.String("event_type", eventType),
+		)
+		return nil, nil
+	}
+
+	// Lookup payment
+	payment, err := s.repo.GetPaymentByID(ctx, paymentID)
+	if err != nil {
+		s.logger.Warn("Webhook referenced payment not found", zap.String("payment_id", paymentID), zap.Error(err))
+		return nil, err
+	}
+
+	if payment.Status == PaymentStatusSucceeded {
+		return toPaymentResponse(payment, nil), nil
+	}
+
+	// Transition payment to SUCCEEDED (which automatically settles linked invoice via repository)
+	now := time.Now().UTC()
+	payment.Status = PaymentStatusSucceeded
+	payment.UpdatedAt = now
+
+	rawStr := string(payload)
+	txID := fmt.Sprintf("tx_wh_%s", uuid.New().String()[:14])
+	tx := &Transaction{
+		ID:                    fmt.Sprintf("tx_%s", uuid.New().String()[:18]),
+		PaymentID:             payment.ID,
+		ProviderTransactionID: &txID,
+		Type:                  TxTypeCharge,
+		Amount:                payment.Amount,
+		Currency:              payment.Currency,
+		Status:                TxStatusSuccess,
+		RawResponse:           &rawStr,
+		CreatedAt:             now,
+	}
+
+	if err := s.repo.UpdatePaymentWithTransaction(ctx, payment, tx); err != nil {
+		s.logger.Error("Failed to update payment on webhook", zap.Error(err))
+		return nil, fmt.Errorf("update payment on webhook: %w", err)
+	}
+
+	s.logger.Info("Payment transitioned to SUCCEEDED via webhook (and linked invoice settled)",
+		zap.String("payment_id", payment.ID),
+		zap.String("provider", string(provider)),
+	)
+
+	return toPaymentResponse(payment, nil), nil
+}
+
 // ---------------------------------------------------------------------------
 // Customer Operations
 // ---------------------------------------------------------------------------
@@ -530,6 +672,7 @@ func toPaymentResponse(p *Payment, paymentURL *string) *PaymentResponse {
 	return &PaymentResponse{
 		ID:             p.ID,
 		IdempotencyKey: p.IdempotencyKey,
+		BillID:         p.BillID,
 		CustomerID:     p.CustomerID,
 		Amount:         p.Amount,
 		Currency:       p.Currency,

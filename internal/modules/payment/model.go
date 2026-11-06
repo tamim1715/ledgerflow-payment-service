@@ -38,6 +38,7 @@ const (
 type Payment struct {
 	ID             string          `db:"id" json:"id"`
 	IdempotencyKey string          `db:"idempotency_key" json:"idempotency_key"`
+	BillID         *string         `db:"bill_id" json:"bill_id,omitempty"`
 	CustomerID     string          `db:"customer_id" json:"customer_id"`
 	Amount         float64         `db:"amount" json:"amount"`
 	Currency       string          `db:"currency" json:"currency"`

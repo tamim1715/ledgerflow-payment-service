@@ -36,10 +36,10 @@ func (r *repository) Create(ctx context.Context, bill *Bill, items []BillItem) e
 
 	queryBill := `
 		INSERT INTO bills (
-			id, bill_number, customer_id, subtotal, tax, discount, total_amount, 
+			id, bill_number, customer_id, subtotal, tax, discount, total_amount, paid_amount,
 			currency, status, issue_date, due_date, notes, metadata, created_at, updated_at
 		) VALUES (
-			:id, :bill_number, :customer_id, :subtotal, :tax, :discount, :total_amount, 
+			:id, :bill_number, :customer_id, :subtotal, :tax, :discount, :total_amount, :paid_amount,
 			:currency, :status, :issue_date, :due_date, :notes, :metadata, :created_at, :updated_at
 		)
 	`
@@ -158,6 +158,7 @@ func (r *repository) Update(ctx context.Context, bill *Bill, items []BillItem) e
 			tax = :tax,
 			discount = :discount,
 			total_amount = :total_amount,
+			paid_amount = :paid_amount,
 			status = :status,
 			due_date = :due_date,
 			notes = :notes,

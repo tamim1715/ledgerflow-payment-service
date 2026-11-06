@@ -2,6 +2,7 @@ package payment
 
 type CreatePaymentRequest struct {
 	IdempotencyKey string          `json:"idempotency_key" binding:"required" example:"ik_987654321"`
+	BillID         *string         `json:"bill_id,omitempty" example:"bill_123abc456def"`
 	CustomerID     string          `json:"customer_id" binding:"required" example:"cust_987654"`
 	Amount         float64         `json:"amount" binding:"required,gt=0" example:"99.99"`
 	Currency       string          `json:"currency" binding:"required,len=3" example:"USD"`
@@ -17,6 +18,7 @@ type CancelPaymentRequest struct {
 type PaymentResponse struct {
 	ID             string          `json:"id" example:"pay_123abc456def"`
 	IdempotencyKey string          `json:"idempotency_key" example:"ik_987654321"`
+	BillID         *string         `json:"bill_id,omitempty" example:"bill_123abc456def"`
 	CustomerID     string          `json:"customer_id" example:"cust_987654"`
 	Amount         float64         `json:"amount" example:"99.99"`
 	Currency       string          `json:"currency" example:"USD"`

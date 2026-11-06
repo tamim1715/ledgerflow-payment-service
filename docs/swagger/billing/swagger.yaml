@@ -32,6 +32,65 @@ definitions:
         example: 1
         type: integer
     type: object
+  billing.BillPaymentDetailResponse:
+    properties:
+      bill_number:
+        example: INV-2026-0001
+        type: string
+      created_at:
+        example: "2026-08-07T15:00:00Z"
+        type: string
+      currency:
+        example: USD
+        type: string
+      customer_id:
+        example: cust_987654
+        type: string
+      discount:
+        example: 10
+        type: number
+      due_date:
+        example: "2026-12-31T23:59:59Z"
+        type: string
+      id:
+        example: bill_123abc456def
+        type: string
+      issue_date:
+        example: "2026-08-07T15:00:00Z"
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/billing.BillItem'
+        type: array
+      metadata:
+        type: object
+      notes:
+        example: Monthly enterprise subscription invoice
+        type: string
+      paid_amount:
+        example: 305
+        type: number
+      payments:
+        items:
+          $ref: '#/definitions/payment.PaymentResponse'
+        type: array
+      status:
+        allOf:
+        - $ref: '#/definitions/billing.BillStatus'
+        example: DRAFT
+      subtotal:
+        example: 300
+        type: number
+      tax:
+        example: 15
+        type: number
+      total_amount:
+        example: 305
+        type: number
+      updated_at:
+        example: "2026-08-07T15:00:00Z"
+        type: string
+    type: object
   billing.BillResponse:
     properties:
       bill_number:
@@ -67,6 +126,9 @@ definitions:
       notes:
         example: Monthly enterprise subscription invoice
         type: string
+      paid_amount:
+        example: 305
+        type: number
       status:
         allOf:
         - $ref: '#/definitions/billing.BillStatus'
@@ -88,6 +150,7 @@ definitions:
     enum:
     - DRAFT
     - PENDING
+    - PARTIALLY_PAID
     - PAID
     - OVERDUE
     - CANCELLED
@@ -95,6 +158,7 @@ definitions:
     x-enum-varnames:
     - BillStatusDraft
     - BillStatusPending
+    - BillStatusPartiallyPaid
     - BillStatusPaid
     - BillStatusOverdue
     - BillStatusCancelled
@@ -149,6 +213,27 @@ definitions:
     - due_date
     - items
     type: object
+  billing.PayBillRequest:
+    properties:
+      amount:
+        example: 150
+        type: number
+      description:
+        example: Payment for Invoice INV-2026-0001
+        type: string
+      idempotency_key:
+        example: ik_pay_bill_123
+        type: string
+      metadata:
+        type: object
+      provider:
+        allOf:
+        - $ref: '#/definitions/payment.PaymentProvider'
+        example: STRIPE
+    required:
+    - idempotency_key
+    - provider
+    type: object
   billing.UpdateBillRequest:
     properties:
       discount:
@@ -176,6 +261,79 @@ definitions:
         minimum: 0
         type: number
     type: object
+  payment.PaymentProvider:
+    enum:
+    - STRIPE
+    - SSLCOMMERZ
+    - PAYPAL
+    - BKASH
+    type: string
+    x-enum-varnames:
+    - ProviderStripe
+    - ProviderSSLCommerz
+    - ProviderPayPal
+    - ProviderBKash
+  payment.PaymentResponse:
+    properties:
+      amount:
+        example: 99.99
+        type: number
+      bill_id:
+        example: bill_123abc456def
+        type: string
+      created_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+      currency:
+        example: USD
+        type: string
+      customer_id:
+        example: cust_987654
+        type: string
+      description:
+        example: 'Payment for Invoice #1234'
+        type: string
+      id:
+        example: pay_123abc456def
+        type: string
+      idempotency_key:
+        example: ik_987654321
+        type: string
+      metadata:
+        type: object
+      payment_url:
+        example: https://checkout.stripe.com/pay/cs_test_123
+        type: string
+      provider:
+        allOf:
+        - $ref: '#/definitions/payment.PaymentProvider'
+        example: STRIPE
+      status:
+        allOf:
+        - $ref: '#/definitions/payment.PaymentStatus'
+        example: SUCCEEDED
+      updated_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+    type: object
+  payment.PaymentStatus:
+    enum:
+    - PENDING
+    - PROCESSING
+    - SUCCEEDED
+    - FAILED
+    - CANCELLED
+    - REFUNDED
+    - PARTIALLY_REFUNDED
+    type: string
+    x-enum-varnames:
+    - PaymentStatusPending
+    - PaymentStatusProcessing
+    - PaymentStatusSucceeded
+    - PaymentStatusFailed
+    - PaymentStatusCancelled
+    - PaymentStatusRefunded
+    - PaymentStatusPartiallyRefunded
 info:
   contact: {}
 paths:
@@ -352,6 +510,83 @@ paths:
               type: string
             type: object
       summary: Update a bill
+      tags:
+      - Billing
+  /api/v1/bills/{id}/pay:
+    post:
+      consumes:
+      - application/json
+      description: Initiates a payment towards a specific invoice and updates its
+        paid balance and status
+      parameters:
+      - description: Bill ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Bill payment payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/billing.PayBillRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/payment.PaymentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Pay a bill / invoice
+      tags:
+      - Billing
+  /api/v1/bills/{id}/payments:
+    get:
+      description: Fetches full bill details along with all payment attempts and transactions
+      parameters:
+      - description: Bill ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.BillPaymentDetailResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get payment history for a bill
       tags:
       - Billing
 swagger: "2.0"

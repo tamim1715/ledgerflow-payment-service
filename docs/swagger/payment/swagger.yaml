@@ -27,6 +27,9 @@ definitions:
       amount:
         example: 99.99
         type: number
+      bill_id:
+        example: bill_123abc456def
+        type: string
       currency:
         example: USD
         type: string
@@ -112,6 +115,9 @@ definitions:
       amount:
         example: 99.99
         type: number
+      bill_id:
+        example: bill_123abc456def
+        type: string
       created_at:
         example: "2026-08-08T12:00:00Z"
         type: string
@@ -188,6 +194,9 @@ definitions:
       amount:
         example: 99.99
         type: number
+      bill_id:
+        example: bill_123abc456def
+        type: string
       created_at:
         example: "2026-08-08T12:00:00Z"
         type: string
@@ -786,4 +795,40 @@ paths:
       summary: Get refund by ID
       tags:
       - Refunds
+  /api/v1/payments/webhooks/{provider}:
+    post:
+      consumes:
+      - application/json
+      description: Ingests asynchronous gateway webhook events (Stripe, SSLCommerz,
+        PayPal, bKash), verifies idempotency, updates payment state, and settles linked
+        invoices
+      parameters:
+      - description: Provider (STRIPE, SSLCOMMERZ, PAYPAL, BKASH)
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Process payment provider webhook event
+      tags:
+      - Payments
 swagger: "2.0"

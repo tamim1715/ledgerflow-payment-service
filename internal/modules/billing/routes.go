@@ -12,5 +12,7 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler) {
 		bills.GET("/:id", h.GetByID)
 		bills.PUT("/:id", h.Update)
 		bills.DELETE("/:id", h.Delete)
+		bills.POST("/:id/pay", h.PayBill)
+		bills.GET("/:id/payments", h.GetBillPayments)
 	}
 }

@@ -51,13 +51,13 @@ func NewApplication() (*Application, error) {
 	// Instantiate Modules
 	healthHandler := health.NewHandler()
 
-	billingRepo := billing.NewRepository(db)
-	billingSvc := billing.NewService(billingRepo, log)
-	billingHandler := billing.NewHandler(billingSvc)
-
 	paymentRepo := payment.NewRepository(db)
 	paymentSvc := payment.NewService(paymentRepo, log)
 	paymentHandler := payment.NewHandler(paymentSvc)
+
+	billingRepo := billing.NewRepository(db)
+	billingSvc := billing.NewService(billingRepo, paymentSvc, log)
+	billingHandler := billing.NewHandler(billingSvc)
 
 	modules := &router.Modules{
 		Health:  healthHandler,

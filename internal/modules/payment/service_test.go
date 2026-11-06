@@ -17,6 +17,8 @@ type mockRepository struct {
 	transactions map[string][]Transaction
 	customers    map[string]*Customer
 	customerMail map[string]*Customer
+	bills        map[string]*BillSummary
+	webhooks     map[string]bool
 }
 
 func newMockRepository() *mockRepository {
@@ -27,6 +29,8 @@ func newMockRepository() *mockRepository {
 		transactions: make(map[string][]Transaction),
 		customers:    make(map[string]*Customer),
 		customerMail: make(map[string]*Customer),
+		bills:        make(map[string]*BillSummary),
+		webhooks:     make(map[string]bool),
 	}
 }
 
@@ -177,6 +181,34 @@ func (m *mockRepository) ListCustomers(ctx context.Context, page int, limit int)
 		list = append(list, *c)
 	}
 	return list, len(list), nil
+}
+
+func (m *mockRepository) ListPaymentsByBillID(ctx context.Context, billID string) ([]Payment, error) {
+	var list []Payment
+	for _, p := range m.payments {
+		if p.BillID != nil && *p.BillID == billID {
+			list = append(list, *p)
+		}
+	}
+	return list, nil
+}
+
+func (m *mockRepository) GetBillSummary(ctx context.Context, billID string) (*BillSummary, error) {
+	b, ok := m.bills[billID]
+	if !ok {
+		return nil, ErrBillNotFound
+	}
+	copyB := *b
+	return &copyB, nil
+}
+
+func (m *mockRepository) RecordWebhookEvent(ctx context.Context, provider string, eventID string, eventType string, payload string) (bool, error) {
+	key := provider + ":" + eventID
+	if m.webhooks[key] {
+		return false, nil
+	}
+	m.webhooks[key] = true
+	return true, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -466,5 +498,117 @@ func TestCustomerManagement(t *testing.T) {
 	}
 	if custList.Total != 1 {
 		t.Errorf("expected 1 customer, got %d", custList.Total)
+	}
+}
+
+func TestPaymentWithLinkedBill(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, zap.NewNop())
+	ctx := context.Background()
+
+	// 1. Seed customer and bill
+	cust := &Customer{ID: "cust_bridge_1", Email: "bridge@test.com"}
+	_ = repo.CreateCustomer(ctx, cust)
+
+	repo.bills["bill_bridge_1"] = &BillSummary{
+		ID:          "bill_bridge_1",
+		CustomerID:  "cust_bridge_1",
+		TotalAmount: 200.0,
+		PaidAmount:  0.0,
+		Currency:    "USD",
+		Status:      "PENDING",
+	}
+
+	billID := "bill_bridge_1"
+
+	// 2. Customer mismatch should fail
+	_, err := svc.CreatePayment(ctx, CreatePaymentRequest{
+		IdempotencyKey: "ik_mismatch",
+		BillID:         &billID,
+		CustomerID:     "different_customer",
+		Amount:         100.0,
+		Currency:       "USD",
+		Provider:       ProviderStripe,
+	})
+	if err == nil {
+		t.Fatal("expected error on customer mismatch, got nil")
+	}
+
+	// 3. Amount exceeding remaining should fail
+	_, err = svc.CreatePayment(ctx, CreatePaymentRequest{
+		IdempotencyKey: "ik_exceed",
+		BillID:         &billID,
+		CustomerID:     "cust_bridge_1",
+		Amount:         250.0,
+		Currency:       "USD",
+		Provider:       ProviderStripe,
+	})
+	if err == nil {
+		t.Fatal("expected error on amount exceeding remaining balance, got nil")
+	}
+
+	// 4. Successful payment linked to bill
+	payRes, err := svc.CreatePayment(ctx, CreatePaymentRequest{
+		IdempotencyKey: "ik_success_bill_pay",
+		BillID:         &billID,
+		CustomerID:     "cust_bridge_1",
+		Amount:         150.0,
+		Currency:       "USD",
+		Provider:       ProviderStripe,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error creating linked payment: %v", err)
+	}
+	if payRes.BillID == nil || *payRes.BillID != "bill_bridge_1" {
+		t.Errorf("expected BillID bill_bridge_1, got %v", payRes.BillID)
+	}
+
+	// 5. Query payments by bill ID
+	billPayments, err := svc.ListPaymentsByBillID(ctx, "bill_bridge_1")
+	if err != nil {
+		t.Fatalf("unexpected error listing payments by bill ID: %v", err)
+	}
+	if len(billPayments) != 1 {
+		t.Fatalf("expected 1 payment for bill, got %d", len(billPayments))
+	}
+}
+
+func TestHandleWebhook_SucceedsPayment(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, zap.NewNop())
+	ctx := context.Background()
+
+	// 1. Seed pending payment
+	payment := &Payment{
+		ID:             "pay_webhook_test",
+		IdempotencyKey: "ik_webhook_test",
+		CustomerID:     "cust_1",
+		Amount:         100.0,
+		Currency:       "USD",
+		Provider:       ProviderStripe,
+		Status:         PaymentStatusPending,
+		CreatedAt:      time.Now().UTC(),
+		UpdatedAt:      time.Now().UTC(),
+	}
+	repo.payments[payment.ID] = payment
+
+	// 2. Incoming webhook payload
+	payload := []byte(`{"id": "evt_stripe_123", "type": "payment_intent.succeeded", "payment_id": "pay_webhook_test"}`)
+
+	res, err := svc.HandleWebhook(ctx, ProviderStripe, payload, "dummy_sig")
+	if err != nil {
+		t.Fatalf("unexpected webhook error: %v", err)
+	}
+	if res == nil || res.Status != PaymentStatusSucceeded {
+		t.Fatalf("expected payment status to transition to SUCCEEDED, got %v", res)
+	}
+
+	// 3. Second identical webhook should be deduplicated (idempotent ignore)
+	res2, err := svc.HandleWebhook(ctx, ProviderStripe, payload, "dummy_sig")
+	if err != nil {
+		t.Fatalf("unexpected error on deduplicated webhook: %v", err)
+	}
+	if res2 != nil {
+		t.Errorf("expected nil on duplicate webhook event, got %v", res2)
 	}
 }

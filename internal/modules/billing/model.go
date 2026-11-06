@@ -7,11 +7,12 @@ import (
 type BillStatus string
 
 const (
-	BillStatusDraft     BillStatus = "DRAFT"
-	BillStatusPending   BillStatus = "PENDING"
-	BillStatusPaid      BillStatus = "PAID"
-	BillStatusOverdue   BillStatus = "OVERDUE"
-	BillStatusCancelled BillStatus = "CANCELLED"
+	BillStatusDraft         BillStatus = "DRAFT"
+	BillStatusPending       BillStatus = "PENDING"
+	BillStatusPartiallyPaid BillStatus = "PARTIALLY_PAID"
+	BillStatusPaid          BillStatus = "PAID"
+	BillStatusOverdue       BillStatus = "OVERDUE"
+	BillStatusCancelled     BillStatus = "CANCELLED"
 )
 
 type Bill struct {
@@ -22,6 +23,7 @@ type Bill struct {
 	Tax         float64    `db:"tax" json:"tax"`
 	Discount    float64    `db:"discount" json:"discount"`
 	TotalAmount float64    `db:"total_amount" json:"total_amount"`
+	PaidAmount  float64    `db:"paid_amount" json:"paid_amount"`
 	Currency    string     `db:"currency" json:"currency"`
 	Status      BillStatus `db:"status" json:"status"`
 	IssueDate   time.Time  `db:"issue_date" json:"issue_date"`

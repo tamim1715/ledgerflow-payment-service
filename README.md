@@ -278,6 +278,7 @@ You can run the SQL migrations using `psql` or your preferred migration tool (e.
 psql -h localhost -p 5432 -U postgres -d ledgerflow -f migrations/000001_create_payment_tables.up.sql
 psql -h localhost -p 5432 -U postgres -d ledgerflow -f migrations/000002_create_bills_table.up.sql
 psql -h localhost -p 5432 -U postgres -d ledgerflow -f migrations/000003_seed_demo_customers.up.sql
+psql -h localhost -p 5432 -U postgres -d ledgerflow -f migrations/000004_create_invoice_payment_bridge.up.sql
 ```
 
 ---
@@ -573,6 +574,33 @@ Initiates a payment with a specified provider and enforces idempotency.
 #### 5. Delete Invoice
 - **Endpoint:** `DELETE /api/v1/bills/:id`
 - **Response:** `204 No Content`
+
+#### 6. Pay Invoice (Invoice-to-Payment Bridge)
+- **Endpoint:** `POST /api/v1/bills/:id/pay`
+- Initiates payment directly for an invoice. If amount is omitted, automatically charges the remaining unpaid balance (`total_amount - paid_amount`).
+- **Request Body:**
+  ```json
+  {
+    "idempotency_key": "ik_pay_inv_101",
+    "amount": 255.00,
+    "provider": "STRIPE",
+    "description": "Full payment for Enterprise Cloud Subscription"
+  }
+  ```
+- **Response (201 Created):** Payment response with `bill_id` linkage; automatically transitions bill to `PAID` (or `PARTIALLY_PAID` if partial amount).
+
+#### 7. Get Invoice Payment History
+- **Endpoint:** `GET /api/v1/bills/:id/payments`
+- **Response (200 OK):** Bill details along with all payment attempts, statuses, and transaction receipts.
+
+---
+
+### Webhook Operations (Asynchronous Ingestion)
+
+#### Ingest Provider Webhook Event
+- **Endpoint:** `POST /api/v1/payments/webhooks/:provider`
+- Supported Providers: `STRIPE`, `SSLCOMMERZ`, `PAYPAL`, `BKASH`
+- Enforces event idempotency via `webhook_events` table, transitions payment to `SUCCEEDED`, and automatically settles linked invoices in a single atomic transaction.
 
 ---
 

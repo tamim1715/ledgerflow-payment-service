@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"ledgerflow-payment-service/internal/modules/payment"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -155,4 +157,65 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+// PayBill godoc
+// @Summary Pay a bill / invoice
+// @Description Initiates a payment towards a specific invoice and updates its paid balance and status
+// @Tags Billing
+// @Accept json
+// @Produce json
+// @Param id path string true "Bill ID"
+// @Param request body PayBillRequest true "Bill payment payload"
+// @Success 201 {object} payment.PaymentResponse
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/bills/{id}/pay [post]
+func (h *Handler) PayBill(c *gin.Context) {
+	id := c.Param("id")
+
+	var req PayBillRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	res, err := h.service.PayBill(c.Request.Context(), id, req)
+	if err != nil {
+		if errors.Is(err, ErrBillNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "bill not found"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, res)
+}
+
+// GetBillPayments godoc
+// @Summary Get payment history for a bill
+// @Description Fetches full bill details along with all payment attempts and transactions
+// @Tags Billing
+// @Produce json
+// @Param id path string true "Bill ID"
+// @Success 200 {object} BillPaymentDetailResponse
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/bills/{id}/payments [get]
+func (h *Handler) GetBillPayments(c *gin.Context) {
+	id := c.Param("id")
+
+	res, err := h.service.GetBillPayments(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrBillNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "bill not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, res)
 }

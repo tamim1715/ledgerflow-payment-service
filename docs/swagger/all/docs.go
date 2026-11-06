@@ -286,6 +286,121 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/bills/{id}/pay": {
+            "post": {
+                "description": "Initiates a payment towards a specific invoice and updates its paid balance and status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Billing"
+                ],
+                "summary": "Pay a bill / invoice",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bill ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Bill payment payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_billing.PayBillRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/ledgerflow-payment-service_internal_modules_payment.PaymentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/bills/{id}/payments": {
+            "get": {
+                "description": "Fetches full bill details along with all payment attempts and transactions",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Billing"
+                ],
+                "summary": "Get payment history for a bill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bill ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_billing.BillPaymentDetailResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/payments": {
             "get": {
                 "description": "Retrieves paginated list of payments with optional customer, status, and provider filters",
@@ -648,6 +763,57 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/webhooks/{provider}": {
+            "post": {
+                "description": "Ingests asynchronous gateway webhook events (Stripe, SSLCommerz, PayPal, bKash), verifies idempotency, updates payment state, and settles linked invoices",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Process payment provider webhook event",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider (STRIPE, SSLCOMMERZ, PAYPAL, BKASH)",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1050,6 +1216,90 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_modules_billing.BillPaymentDetailResponse": {
+            "type": "object",
+            "properties": {
+                "bill_number": {
+                    "type": "string",
+                    "example": "INV-2026-0001"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-08-07T15:00:00Z"
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "USD"
+                },
+                "customer_id": {
+                    "type": "string",
+                    "example": "cust_987654"
+                },
+                "discount": {
+                    "type": "number",
+                    "example": 10
+                },
+                "due_date": {
+                    "type": "string",
+                    "example": "2026-12-31T23:59:59Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "bill_123abc456def"
+                },
+                "issue_date": {
+                    "type": "string",
+                    "example": "2026-08-07T15:00:00Z"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_billing.BillItem"
+                    }
+                },
+                "metadata": {
+                    "type": "object"
+                },
+                "notes": {
+                    "type": "string",
+                    "example": "Monthly enterprise subscription invoice"
+                },
+                "paid_amount": {
+                    "type": "number",
+                    "example": 305
+                },
+                "payments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ledgerflow-payment-service_internal_modules_payment.PaymentResponse"
+                    }
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/internal_modules_billing.BillStatus"
+                        }
+                    ],
+                    "example": "DRAFT"
+                },
+                "subtotal": {
+                    "type": "number",
+                    "example": 300
+                },
+                "tax": {
+                    "type": "number",
+                    "example": 15
+                },
+                "total_amount": {
+                    "type": "number",
+                    "example": 305
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2026-08-07T15:00:00Z"
+                }
+            }
+        },
         "internal_modules_billing.BillResponse": {
             "type": "object",
             "properties": {
@@ -1098,6 +1348,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Monthly enterprise subscription invoice"
                 },
+                "paid_amount": {
+                    "type": "number",
+                    "example": 305
+                },
                 "status": {
                     "allOf": [
                         {
@@ -1129,6 +1383,7 @@ const docTemplate = `{
             "enum": [
                 "DRAFT",
                 "PENDING",
+                "PARTIALLY_PAID",
                 "PAID",
                 "OVERDUE",
                 "CANCELLED"
@@ -1136,6 +1391,7 @@ const docTemplate = `{
             "x-enum-varnames": [
                 "BillStatusDraft",
                 "BillStatusPending",
+                "BillStatusPartiallyPaid",
                 "BillStatusPaid",
                 "BillStatusOverdue",
                 "BillStatusCancelled"
@@ -1207,6 +1463,38 @@ const docTemplate = `{
                     "type": "number",
                     "minimum": 0,
                     "example": 15
+                }
+            }
+        },
+        "internal_modules_billing.PayBillRequest": {
+            "type": "object",
+            "required": [
+                "idempotency_key",
+                "provider"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "example": 150
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Payment for Invoice INV-2026-0001"
+                },
+                "idempotency_key": {
+                    "type": "string",
+                    "example": "ik_pay_bill_123"
+                },
+                "metadata": {
+                    "type": "object"
+                },
+                "provider": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ledgerflow-payment-service_internal_modules_payment.PaymentProvider"
+                        }
+                    ],
+                    "example": "STRIPE"
                 }
             }
         },
@@ -1296,6 +1584,10 @@ const docTemplate = `{
                 "amount": {
                     "type": "number",
                     "example": 99.99
+                },
+                "bill_id": {
+                    "type": "string",
+                    "example": "bill_123abc456def"
                 },
                 "currency": {
                     "type": "string",
@@ -1410,6 +1702,10 @@ const docTemplate = `{
                     "type": "number",
                     "example": 99.99
                 },
+                "bill_id": {
+                    "type": "string",
+                    "example": "bill_123abc456def"
+                },
                 "created_at": {
                     "type": "string",
                     "example": "2026-08-08T12:00:00Z"
@@ -1519,6 +1815,10 @@ const docTemplate = `{
                 "amount": {
                     "type": "number",
                     "example": 99.99
+                },
+                "bill_id": {
+                    "type": "string",
+                    "example": "bill_123abc456def"
                 },
                 "created_at": {
                     "type": "string",
@@ -1753,6 +2053,106 @@ const docTemplate = `{
                 "TxTypeCharge",
                 "TxTypeRefund",
                 "TxTypeReversal"
+            ]
+        },
+        "ledgerflow-payment-service_internal_modules_payment.PaymentProvider": {
+            "type": "string",
+            "enum": [
+                "STRIPE",
+                "SSLCOMMERZ",
+                "PAYPAL",
+                "BKASH"
+            ],
+            "x-enum-varnames": [
+                "ProviderStripe",
+                "ProviderSSLCommerz",
+                "ProviderPayPal",
+                "ProviderBKash"
+            ]
+        },
+        "ledgerflow-payment-service_internal_modules_payment.PaymentResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "example": 99.99
+                },
+                "bill_id": {
+                    "type": "string",
+                    "example": "bill_123abc456def"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-08-08T12:00:00Z"
+                },
+                "currency": {
+                    "type": "string",
+                    "example": "USD"
+                },
+                "customer_id": {
+                    "type": "string",
+                    "example": "cust_987654"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Payment for Invoice #1234"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "pay_123abc456def"
+                },
+                "idempotency_key": {
+                    "type": "string",
+                    "example": "ik_987654321"
+                },
+                "metadata": {
+                    "type": "object"
+                },
+                "payment_url": {
+                    "type": "string",
+                    "example": "https://checkout.stripe.com/pay/cs_test_123"
+                },
+                "provider": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ledgerflow-payment-service_internal_modules_payment.PaymentProvider"
+                        }
+                    ],
+                    "example": "STRIPE"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ledgerflow-payment-service_internal_modules_payment.PaymentStatus"
+                        }
+                    ],
+                    "example": "SUCCEEDED"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2026-08-08T12:00:00Z"
+                }
+            }
+        },
+        "ledgerflow-payment-service_internal_modules_payment.PaymentStatus": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "PROCESSING",
+                "SUCCEEDED",
+                "FAILED",
+                "CANCELLED",
+                "REFUNDED",
+                "PARTIALLY_REFUNDED"
+            ],
+            "x-enum-varnames": [
+                "PaymentStatusPending",
+                "PaymentStatusProcessing",
+                "PaymentStatusSucceeded",
+                "PaymentStatusFailed",
+                "PaymentStatusCancelled",
+                "PaymentStatusRefunded",
+                "PaymentStatusPartiallyRefunded"
             ]
         }
     }

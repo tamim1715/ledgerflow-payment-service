@@ -2,6 +2,7 @@ package billing
 
 import (
 	"time"
+	"ledgerflow-payment-service/internal/modules/payment"
 )
 
 type CreateBillItemRequest struct {
@@ -31,6 +32,14 @@ type UpdateBillRequest struct {
 	Items    []CreateBillItemRequest `json:"items,omitempty" binding:"omitempty,dive"`
 }
 
+type PayBillRequest struct {
+	IdempotencyKey string                  `json:"idempotency_key" binding:"required" example:"ik_pay_bill_123"`
+	Amount         *float64                `json:"amount,omitempty" binding:"omitempty,gt=0" example:"150.00"`
+	Provider       payment.PaymentProvider `json:"provider" binding:"required" example:"STRIPE"`
+	Description    string                  `json:"description,omitempty" example:"Payment for Invoice INV-2026-0001"`
+	Metadata       map[string]any          `json:"metadata,omitempty" swaggertype:"object"`
+}
+
 type BillResponse struct {
 	ID          string         `json:"id" example:"bill_123abc456def"`
 	BillNumber  string         `json:"bill_number" example:"INV-2026-0001"`
@@ -39,6 +48,7 @@ type BillResponse struct {
 	Tax         float64        `json:"tax" example:"15.00"`
 	Discount    float64        `json:"discount" example:"10.00"`
 	TotalAmount float64        `json:"total_amount" example:"305.00"`
+	PaidAmount  float64        `json:"paid_amount" example:"305.00"`
 	Currency    string         `json:"currency" example:"USD"`
 	Status      BillStatus     `json:"status" example:"DRAFT"`
 	IssueDate   string         `json:"issue_date" example:"2026-08-07T15:00:00Z"`
@@ -48,6 +58,11 @@ type BillResponse struct {
 	Items       []BillItem     `json:"items"`
 	CreatedAt   string         `json:"created_at" example:"2026-08-07T15:00:00Z"`
 	UpdatedAt   string         `json:"updated_at" example:"2026-08-07T15:00:00Z"`
+}
+
+type BillPaymentDetailResponse struct {
+	BillResponse
+	Payments []payment.PaymentResponse `json:"payments"`
 }
 
 type BillListResponse struct {
