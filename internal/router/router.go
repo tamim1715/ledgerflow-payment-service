@@ -4,6 +4,7 @@ import (
 	"ledgerflow-payment-service/internal/modules/billing"
 	"ledgerflow-payment-service/internal/modules/health"
 	"ledgerflow-payment-service/internal/modules/payment"
+	"ledgerflow-payment-service/internal/modules/webhook"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -14,6 +15,7 @@ type Modules struct {
 	Health  *health.Handler
 	Billing *billing.Handler
 	Payment *payment.Handler
+	Webhook *webhook.Handler
 }
 
 func RegisterRoutes(
@@ -30,6 +32,8 @@ func RegisterRoutes(
 		billing.RegisterRoutes(v1, modules.Billing)
 		// Payment Module Routes
 		payment.RegisterRoutes(v1, modules.Payment)
+		// Webhook Module Routes
+		webhook.RegisterRoutes(v1, modules.Webhook)
 	}
 
 	// 3. Serve Static Swagger Documentation for Modules
@@ -42,4 +46,5 @@ func RegisterRoutes(
 	r.GET("/swagger-ui/billing/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.URL("/docs/swagger/billing/swagger.json")))
 	r.GET("/swagger-ui/health/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.URL("/docs/swagger/health/swagger.json")))
 	r.GET("/swagger-ui/payment/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.URL("/docs/swagger/payment/swagger.json")))
+	r.GET("/swagger-ui/webhook/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.URL("/docs/swagger/webhook/swagger.json")))
 }

@@ -202,15 +202,6 @@ func (m *mockRepository) GetBillSummary(ctx context.Context, billID string) (*Bi
 	return &copyB, nil
 }
 
-func (m *mockRepository) RecordWebhookEvent(ctx context.Context, provider string, eventID string, eventType string, payload string) (bool, error) {
-	key := provider + ":" + eventID
-	if m.webhooks[key] {
-		return false, nil
-	}
-	m.webhooks[key] = true
-	return true, nil
-}
-
 // ---------------------------------------------------------------------------
 // Unit Tests
 // ---------------------------------------------------------------------------
@@ -573,7 +564,7 @@ func TestPaymentWithLinkedBill(t *testing.T) {
 	}
 }
 
-func TestHandleWebhook_SucceedsPayment(t *testing.T) {
+func TestProcessWebhookEvent_TransitionsPayment(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo, zap.NewNop())
 	ctx := context.Background()
@@ -592,10 +583,15 @@ func TestHandleWebhook_SucceedsPayment(t *testing.T) {
 	}
 	repo.payments[payment.ID] = payment
 
-	// 2. Incoming webhook payload
-	payload := []byte(`{"id": "evt_stripe_123", "type": "payment_intent.succeeded", "payment_id": "pay_webhook_test"}`)
-
-	res, err := svc.HandleWebhook(ctx, ProviderStripe, payload, "dummy_sig")
+	// 2. Apply webhook payment event
+	res, err := svc.ProcessWebhookEvent(ctx, WebhookPaymentEvent{
+		PaymentID:    "pay_webhook_test",
+		Provider:     ProviderStripe,
+		ProviderTxID: "ch_wh_12345",
+		Status:       PaymentStatusSucceeded,
+		Amount:       100.0,
+		Currency:     "USD",
+	})
 	if err != nil {
 		t.Fatalf("unexpected webhook error: %v", err)
 	}
@@ -603,12 +599,19 @@ func TestHandleWebhook_SucceedsPayment(t *testing.T) {
 		t.Fatalf("expected payment status to transition to SUCCEEDED, got %v", res)
 	}
 
-	// 3. Second identical webhook should be deduplicated (idempotent ignore)
-	res2, err := svc.HandleWebhook(ctx, ProviderStripe, payload, "dummy_sig")
+	// 3. Second identical call is idempotent
+	res2, err := svc.ProcessWebhookEvent(ctx, WebhookPaymentEvent{
+		PaymentID:    "pay_webhook_test",
+		Provider:     ProviderStripe,
+		ProviderTxID: "ch_wh_12345",
+		Status:       PaymentStatusSucceeded,
+		Amount:       100.0,
+		Currency:     "USD",
+	})
 	if err != nil {
-		t.Fatalf("unexpected error on deduplicated webhook: %v", err)
+		t.Fatalf("unexpected error on idempotent event: %v", err)
 	}
-	if res2 != nil {
-		t.Errorf("expected nil on duplicate webhook event, got %v", res2)
+	if res2.Status != PaymentStatusSucceeded {
+		t.Errorf("expected SUCCEEDED status, got %v", res2.Status)
 	}
 }

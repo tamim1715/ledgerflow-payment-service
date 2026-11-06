@@ -106,3 +106,15 @@ type CustomerListResponse struct {
 	Page      int                `json:"page" example:"1"`
 	Limit     int                `json:"limit" example:"10"`
 }
+
+type WebhookPaymentEvent struct {
+	PaymentID    string          `json:"payment_id"`
+	Provider     PaymentProvider `json:"provider"`
+	ProviderTxID string          `json:"provider_tx_id"`
+	Status       PaymentStatus   `json:"status"`
+	Amount       float64         `json:"amount"`
+	Currency     string          `json:"currency"`
+	ErrorCode    *string         `json:"error_code,omitempty"`
+	ErrorMessage *string         `json:"error_message,omitempty"`
+	RawResponse  map[string]any  `json:"raw_response,omitempty"`
+}

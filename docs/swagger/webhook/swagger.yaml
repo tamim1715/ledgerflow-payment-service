@@ -1,0 +1,169 @@
+definitions:
+  payment.PaymentProvider:
+    enum:
+    - STRIPE
+    - SSLCOMMERZ
+    - PAYPAL
+    - BKASH
+    type: string
+    x-enum-varnames:
+    - ProviderStripe
+    - ProviderSSLCommerz
+    - ProviderPayPal
+    - ProviderBKash
+  payment.PaymentResponse:
+    properties:
+      amount:
+        example: 99.99
+        type: number
+      bill_id:
+        example: bill_123abc456def
+        type: string
+      created_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+      currency:
+        example: USD
+        type: string
+      customer_id:
+        example: cust_987654
+        type: string
+      description:
+        example: 'Payment for Invoice #1234'
+        type: string
+      id:
+        example: pay_123abc456def
+        type: string
+      idempotency_key:
+        example: ik_987654321
+        type: string
+      metadata:
+        type: object
+      payment_url:
+        example: https://checkout.stripe.com/pay/cs_test_123
+        type: string
+      provider:
+        allOf:
+        - $ref: '#/definitions/payment.PaymentProvider'
+        example: STRIPE
+      status:
+        allOf:
+        - $ref: '#/definitions/payment.PaymentStatus'
+        example: SUCCEEDED
+      updated_at:
+        example: "2026-08-08T12:00:00Z"
+        type: string
+    type: object
+  payment.PaymentStatus:
+    enum:
+    - PENDING
+    - PROCESSING
+    - SUCCEEDED
+    - FAILED
+    - CANCELLED
+    - REFUNDED
+    - PARTIALLY_REFUNDED
+    type: string
+    x-enum-varnames:
+    - PaymentStatusPending
+    - PaymentStatusProcessing
+    - PaymentStatusSucceeded
+    - PaymentStatusFailed
+    - PaymentStatusCancelled
+    - PaymentStatusRefunded
+    - PaymentStatusPartiallyRefunded
+  webhook.WebhookProcessResult:
+    properties:
+      event_id:
+        example: evt_123456789
+        type: string
+      event_type:
+        example: payment_intent.succeeded
+        type: string
+      message:
+        example: Webhook processed successfully
+        type: string
+      payment:
+        $ref: '#/definitions/payment.PaymentResponse'
+      provider:
+        example: STRIPE
+        type: string
+      status:
+        example: PROCESSED
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /api/v1/webhooks/{provider}:
+    post:
+      consumes:
+      - application/json
+      - application/x-www-form-urlencoded
+      description: Receives asynchronous webhooks from payment gateways (Stripe, SSLCommerz,
+        bKash, PayPal), verifies event deduplication, normalizes payloads, and updates
+        payment state and linked invoice
+      parameters:
+      - description: Payment Gateway Provider (STRIPE, SSLCOMMERZ, BKASH, PAYPAL)
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/webhook.WebhookProcessResult'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Ingest payment provider webhook event
+      tags:
+      - Webhooks
+  /api/v1/webhooks/events:
+    get:
+      description: Returns paginated audit log of ingested webhook events
+      parameters:
+      - description: Filter by provider
+        in: query
+        name: provider
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List received webhook events
+      tags:
+      - Webhooks
+swagger: "2.0"

@@ -625,6 +625,26 @@ definitions:
     - TxTypeCharge
     - TxTypeRefund
     - TxTypeReversal
+  internal_modules_webhook.WebhookProcessResult:
+    properties:
+      event_id:
+        example: evt_123456789
+        type: string
+      event_type:
+        example: payment_intent.succeeded
+        type: string
+      message:
+        example: Webhook processed successfully
+        type: string
+      payment:
+        $ref: '#/definitions/ledgerflow-payment-service_internal_modules_payment.PaymentResponse'
+      provider:
+        example: STRIPE
+        type: string
+      status:
+        example: PROCESSED
+        type: string
+    type: object
   ledgerflow-payment-service_internal_modules_payment.PaymentProvider:
     enum:
     - STRIPE
@@ -1394,15 +1414,16 @@ paths:
       summary: Get refund by ID
       tags:
       - Refunds
-  /api/v1/payments/webhooks/{provider}:
+  /api/v1/webhooks/{provider}:
     post:
       consumes:
       - application/json
-      description: Ingests asynchronous gateway webhook events (Stripe, SSLCommerz,
-        PayPal, bKash), verifies idempotency, updates payment state, and settles linked
-        invoices
+      - application/x-www-form-urlencoded
+      description: Receives asynchronous webhooks from payment gateways (Stripe, SSLCommerz,
+        bKash, PayPal), verifies event deduplication, normalizes payloads, and updates
+        payment state and linked invoice
       parameters:
-      - description: Provider (STRIPE, SSLCOMMERZ, PAYPAL, BKASH)
+      - description: Payment Gateway Provider (STRIPE, SSLCOMMERZ, BKASH, PAYPAL)
         in: path
         name: provider
         required: true
@@ -1413,8 +1434,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/internal_modules_webhook.WebhookProcessResult'
         "400":
           description: Bad Request
           schema:
@@ -1427,9 +1447,44 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Process payment provider webhook event
+      summary: Ingest payment provider webhook event
       tags:
-      - Payments
+      - Webhooks
+  /api/v1/webhooks/events:
+    get:
+      description: Returns paginated audit log of ingested webhook events
+      parameters:
+      - description: Filter by provider
+        in: query
+        name: provider
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List received webhook events
+      tags:
+      - Webhooks
   /health:
     get:
       description: Returns server liveness status

@@ -21,7 +21,5 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler) {
 		payments.POST("/customers", h.CreateCustomer)
 		payments.GET("/customers", h.ListCustomers)
 		payments.GET("/customers/:id", h.GetCustomerByID)
-
-		payments.POST("/webhooks/:provider", h.HandleWebhook)
 	}
 }

@@ -15,7 +15,7 @@ install-tools:
 	@echo "Tools installed successfully."
 
 ## swagger: Generate Swagger documentation for all modules and overall API
-swagger: install-tools swagger-all swagger-billing swagger-health swagger-payment
+swagger: install-tools swagger-all swagger-billing swagger-health swagger-payment swagger-webhook
 	@echo "All module Swagger specs updated successfully!"
 
 ## swagger-all: Generate consolidated API Swagger documentation
@@ -41,6 +41,12 @@ swagger-payment:
 	@echo "Generating Payment module Swagger documentation..."
 	@mkdir -p docs/swagger/payment
 	@$(SWAG) init -g handler.go --dir ./internal/modules/payment -o docs/swagger/payment --parseDependency --parseInternal
+
+## swagger-webhook: Generate Webhook module Swagger documentation
+swagger-webhook:
+	@echo "Generating Webhook module Swagger documentation..."
+	@mkdir -p docs/swagger/webhook
+	@$(SWAG) init -g handler.go --dir ./internal/modules/webhook -o docs/swagger/webhook --parseDependency --parseInternal
 
 ## build: Build application binary
 build:

@@ -30,7 +30,7 @@ type IService interface {
 	ListTransactions(ctx context.Context, paymentID string) ([]TransactionResponse, error)
 	ListPaymentsByBillID(ctx context.Context, billID string) ([]PaymentResponse, error)
 
-	HandleWebhook(ctx context.Context, provider PaymentProvider, payload []byte, signature string) (*PaymentResponse, error)
+	ProcessWebhookEvent(ctx context.Context, event WebhookPaymentEvent) (*PaymentResponse, error)
 
 	CreateCustomer(ctx context.Context, req CreateCustomerRequest) (*CustomerResponse, error)
 	GetCustomerByID(ctx context.Context, id string) (*CustomerResponse, error)
@@ -487,101 +487,78 @@ func (s *service) ListPaymentsByBillID(ctx context.Context, billID string) ([]Pa
 	return responses, nil
 }
 
-func (s *service) HandleWebhook(ctx context.Context, provider PaymentProvider, payload []byte, signature string) (*PaymentResponse, error) {
-	var bodyMap map[string]any
-	if err := json.Unmarshal(payload, &bodyMap); err != nil {
-		return nil, fmt.Errorf("parse webhook json: %w", err)
-	}
-
-	// Extract or generate event identifier for deduplication
-	eventID := fmt.Sprintf("evt_%s_%d", provider, time.Now().UnixNano())
-	if id, ok := bodyMap["id"].(string); ok && id != "" {
-		eventID = id
-	}
-
-	eventType := "payment.succeeded"
-	if t, ok := bodyMap["type"].(string); ok && t != "" {
-		eventType = t
-	} else if ev, ok := bodyMap["event"].(string); ok && ev != "" {
-		eventType = ev
-	}
-
-	// Idempotency check on webhook event
-	isNew, err := s.repo.RecordWebhookEvent(ctx, string(provider), eventID, eventType, string(payload))
+func (s *service) ProcessWebhookEvent(ctx context.Context, event WebhookPaymentEvent) (*PaymentResponse, error) {
+	payment, err := s.repo.GetPaymentByID(ctx, event.PaymentID)
 	if err != nil {
-		s.logger.Error("Failed to record webhook event", zap.Error(err))
-		return nil, fmt.Errorf("record webhook event: %w", err)
-	}
-	if !isNew {
-		s.logger.Info("Webhook event already processed (idempotent ignore)",
-			zap.String("provider", string(provider)),
-			zap.String("event_id", eventID),
+		s.logger.Warn("Webhook event referenced payment not found",
+			zap.String("payment_id", event.PaymentID),
+			zap.String("provider", string(event.Provider)),
+			zap.Error(err),
 		)
-		return nil, nil
+		return nil, ErrPaymentNotFound
 	}
 
-	// Extract target payment ID
-	var paymentID string
-	if pID, ok := bodyMap["payment_id"].(string); ok {
-		paymentID = pID
-	} else if data, ok := bodyMap["data"].(map[string]any); ok {
-		if obj, ok := data["object"].(map[string]any); ok {
-			if meta, ok := obj["metadata"].(map[string]any); ok {
-				if mPID, ok := meta["payment_id"].(string); ok {
-					paymentID = mPID
-				}
-			}
-		}
-	} else if tranID, ok := bodyMap["tran_id"].(string); ok {
-		paymentID = tranID
-	}
-
-	if paymentID == "" {
-		s.logger.Info("Webhook received and logged with no direct payment_id to transition",
-			zap.String("provider", string(provider)),
-			zap.String("event_type", eventType),
+	// Idempotency: If already in this status, return without re-processing
+	if payment.Status == event.Status {
+		s.logger.Info("Payment already in target status from previous webhook/event",
+			zap.String("payment_id", payment.ID),
+			zap.String("status", string(payment.Status)),
 		)
-		return nil, nil
-	}
-
-	// Lookup payment
-	payment, err := s.repo.GetPaymentByID(ctx, paymentID)
-	if err != nil {
-		s.logger.Warn("Webhook referenced payment not found", zap.String("payment_id", paymentID), zap.Error(err))
-		return nil, err
-	}
-
-	if payment.Status == PaymentStatusSucceeded {
 		return toPaymentResponse(payment, nil), nil
 	}
 
-	// Transition payment to SUCCEEDED (which automatically settles linked invoice via repository)
 	now := time.Now().UTC()
-	payment.Status = PaymentStatusSucceeded
+	payment.Status = event.Status
 	payment.UpdatedAt = now
 
-	rawStr := string(payload)
-	txID := fmt.Sprintf("tx_wh_%s", uuid.New().String()[:14])
+	var rawStr *string
+	if event.RawResponse != nil {
+		bytes, err := json.Marshal(event.RawResponse)
+		if err == nil {
+			str := string(bytes)
+			rawStr = &str
+		}
+	}
+
+	txType := TxTypeCharge
+	txStatus := TxStatusSuccess
+	if event.Status == PaymentStatusFailed {
+		txStatus = TxStatusFailed
+	} else if event.Status == PaymentStatusCancelled {
+		txType = TxTypeReversal
+	}
+
+	providerTxID := event.ProviderTxID
+	if providerTxID == "" {
+		providerTxID = fmt.Sprintf("tx_wh_%s", uuid.New().String()[:14])
+	}
+
 	tx := &Transaction{
 		ID:                    fmt.Sprintf("tx_%s", uuid.New().String()[:18]),
 		PaymentID:             payment.ID,
-		ProviderTransactionID: &txID,
-		Type:                  TxTypeCharge,
+		ProviderTransactionID: &providerTxID,
+		Type:                  txType,
 		Amount:                payment.Amount,
 		Currency:              payment.Currency,
-		Status:                TxStatusSuccess,
-		RawResponse:           &rawStr,
+		Status:                txStatus,
+		RawResponse:           rawStr,
+		ErrorCode:             event.ErrorCode,
+		ErrorMessage:          event.ErrorMessage,
 		CreatedAt:             now,
 	}
 
 	if err := s.repo.UpdatePaymentWithTransaction(ctx, payment, tx); err != nil {
-		s.logger.Error("Failed to update payment on webhook", zap.Error(err))
-		return nil, fmt.Errorf("update payment on webhook: %w", err)
+		s.logger.Error("Failed to persist payment status update from webhook",
+			zap.String("payment_id", payment.ID),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("apply webhook payment event: %w", err)
 	}
 
-	s.logger.Info("Payment transitioned to SUCCEEDED via webhook (and linked invoice settled)",
+	s.logger.Info("Payment successfully transitioned from webhook event",
 		zap.String("payment_id", payment.ID),
-		zap.String("provider", string(provider)),
+		zap.String("provider", string(event.Provider)),
+		zap.String("new_status", string(payment.Status)),
 	)
 
 	return toPaymentResponse(payment, nil), nil

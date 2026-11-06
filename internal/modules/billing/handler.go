@@ -14,6 +14,8 @@ type Handler struct {
 	service IService
 }
 
+var _ = payment.PaymentResponse{}
+
 func NewHandler(service IService) *Handler {
 	return &Handler{service: service}
 }

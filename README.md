@@ -147,23 +147,33 @@ ledgerflow-payment-service/
 │   │   ├── health/                 # Health probe module
 │   │   │   ├── handler.go          # Liveness & readiness probes
 │   │   │   └── routes.go           # Route registration
-│   │   └── payment/                # Payment processing module
-│   │       ├── dto.go              # Payment, Refund & Customer DTOs
-│   │       ├── gateway.go          # Multi-gateway implementation (Stripe, SSLCommerz, PayPal, bKash)
-│   │       ├── gateway_test.go     # Gateway test suite
-│   │       ├── handler.go          # REST handlers & annotations
-│   │       ├── handler_test.go     # HTTP handler test suite
-│   │       ├── model.go            # Domain models (Payment, Transaction, Refund, Customer)
-│   │       ├── repository.go       # PostgreSQL database queries
-│   │       ├── routes.go           # Route registration
-│   │       ├── service.go          # Payment workflow orchestration
-│   │       └── service_test.go     # Service business logic test suite
+│   │   ├── payment/                # Payment processing module
+│   │   │   ├── dto.go              # Payment, Refund & Customer DTOs
+│   │   │   ├── gateway.go          # Multi-gateway implementation (Stripe, SSLCommerz, PayPal, bKash)
+│   │   │   ├── gateway_test.go     # Gateway test suite
+│   │   │   ├── handler.go          # REST handlers & annotations
+│   │   │   ├── handler_test.go     # HTTP handler test suite
+│   │   │   ├── model.go            # Domain models (Payment, Transaction, Refund, Customer)
+│   │   │   ├── repository.go       # PostgreSQL database queries
+│   │   │   ├── routes.go           # Route registration
+│   │   │   ├── service.go          # Payment workflow orchestration
+│   │   │   └── service_test.go     # Service business logic test suite
+│   │   └── webhook/                # Dedicated Asynchronous Webhook Module
+│   │       ├── dto.go              # Normalized event DTOs
+│   │       ├── handler.go          # Webhook ingestion & event listing endpoints
+│   │       ├── model.go            # WebhookEvent audit domain model
+│   │       ├── parser.go           # Multi-provider parsers (Stripe, SSLCommerz, bKash, PayPal)
+│   │       ├── repository.go       # Event audit logging & idempotency database queries
+│   │       ├── routes.go           # Route registration (/api/v1/webhooks)
+│   │       ├── service.go          # Webhook dispatching & payment status synchronization
+│   │       └── service_test.go     # Webhook unit test suite
 │   └── router/
 │       └── router.go               # Global routing & Swagger UI mountings
 ├── migrations/
 │   ├── 000001_create_payment_tables.up.sql / .down.sql
 │   ├── 000002_create_bills_table.up.sql / .down.sql
-│   └── 000003_seed_demo_customers.up.sql / .down.sql
+│   ├── 000003_seed_demo_customers.up.sql / .down.sql
+│   └── 000004_create_invoice_payment_bridge.up.sql / .down.sql
 ├── pkg/
 │   ├── database/
 │   │   └── postgres.go             # PostgreSQL connection pool initializer
@@ -595,12 +605,33 @@ Initiates a payment with a specified provider and enforces idempotency.
 
 ---
 
-### Webhook Operations (Asynchronous Ingestion)
+### Webhook Operations (Dedicated Asynchronous Ingestion Engine)
 
-#### Ingest Provider Webhook Event
-- **Endpoint:** `POST /api/v1/payments/webhooks/:provider`
-- Supported Providers: `STRIPE`, `SSLCOMMERZ`, `PAYPAL`, `BKASH`
-- Enforces event idempotency via `webhook_events` table, transitions payment to `SUCCEEDED`, and automatically settles linked invoices in a single atomic transaction.
+The webhook module normalizes disparate provider payloads (JSON & Form URL-Encoded), enforces deduplication, and syncs payment and invoice states.
+
+#### 1. Ingest Provider Webhook Event
+- **Endpoint:** `POST /api/v1/webhooks/:provider`
+- **Supported Providers:** `STRIPE`, `SSLCOMMERZ`, `BKASH`, `PAYPAL`
+- **Payload Handling:**
+  - **Stripe**: Parses `data.object`, extracts `payment_id`, handles `payment_intent.succeeded`, `payment_intent.payment_failed`, `checkout.session.completed`, converts cents to standard units, and extracts failure error codes.
+  - **SSLCommerz**: Parses both JSON and `application/x-www-form-urlencoded` IPN posts, reads `tran_id`, `val_id`, `bank_tran_id`, maps `VALID`/`VALIDATED` to `SUCCEEDED` and `CANCELLED`/`FAILED` accordingly.
+  - **bKash**: Parses Tokenized Checkout callbacks/webhooks, reads `paymentID`, `trxID`, `merchantInvoiceNumber`, maps `Completed`, `Failed`, and `Cancelled`.
+  - **PayPal**: Parses PayPal Webhook resource payloads, maps `PAYMENT.CAPTURE.COMPLETED` and `CHECKOUT.ORDER.APPROVED` to `SUCCEEDED` and captures `custom_id` / `invoice_id`.
+- **Response (200 OK):**
+  ```json
+  {
+    "event_id": "evt_stripe_999",
+    "provider": "STRIPE",
+    "event_type": "payment_intent.succeeded",
+    "status": "PROCESSED",
+    "payment": { "id": "pay_123", "status": "SUCCEEDED" },
+    "message": "Payment updated successfully from webhook"
+  }
+  ```
+
+#### 2. List Webhook Audit Events
+- **Endpoint:** `GET /api/v1/webhooks/events?provider=STRIPE&page=1&limit=10`
+- **Response (200 OK):** Paginated audit log of all received webhook events.
 
 ---
 
@@ -613,6 +644,7 @@ LedgerFlow includes Swagger OpenAPI 2.0 specifications with interactive UIs.
 | **All Services (Consolidated)** | [http://localhost:8081/swagger/index.html](http://localhost:8081/swagger/index.html) | `/docs/swagger/all/swagger.json` |
 | **Payment Module** | [http://localhost:8081/swagger-ui/payment/index.html](http://localhost:8081/swagger-ui/payment/index.html) | `/docs/swagger/payment/swagger.json` |
 | **Billing Module** | [http://localhost:8081/swagger-ui/billing/index.html](http://localhost:8081/swagger-ui/billing/index.html) | `/docs/swagger/billing/swagger.json` |
+| **Webhook Module** | [http://localhost:8081/swagger-ui/webhook/index.html](http://localhost:8081/swagger-ui/webhook/index.html) | `/docs/swagger/webhook/swagger.json` |
 | **Health Probes** | [http://localhost:8081/swagger-ui/health/index.html](http://localhost:8081/swagger-ui/health/index.html) | `/docs/swagger/health/swagger.json` |
 
 ### Regenerating Swagger Specs

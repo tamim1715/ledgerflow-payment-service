@@ -5,9 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -47,8 +45,6 @@ type IRepository interface {
 
 	CreateTransaction(ctx context.Context, tx *Transaction) error
 	ListTransactionsByPaymentID(ctx context.Context, paymentID string) ([]Transaction, error)
-
-	RecordWebhookEvent(ctx context.Context, provider string, eventID string, eventType string, payload string) (bool, error)
 
 	CreateCustomer(ctx context.Context, customer *Customer) error
 	GetCustomerByID(ctx context.Context, id string) (*Customer, error)
@@ -557,20 +553,4 @@ func (r *repository) GetBillSummary(ctx context.Context, billID string) (*BillSu
 		return nil, fmt.Errorf("get bill summary: %w", err)
 	}
 	return &bill, nil
-}
-
-func (r *repository) RecordWebhookEvent(ctx context.Context, provider string, eventID string, eventType string, payload string) (bool, error) {
-	query := `
-		INSERT INTO webhook_events (id, provider, event_id, event_type, payload, status, processed_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, 'PROCESSED', $6, $6)
-		ON CONFLICT (provider, event_id) DO NOTHING
-	`
-	id := uuid.New().String()
-	now := time.Now().UTC()
-	res, err := r.db.ExecContext(ctx, query, id, provider, eventID, eventType, payload, now)
-	if err != nil {
-		return false, fmt.Errorf("record webhook event: %w", err)
-	}
-	rows, _ := res.RowsAffected()
-	return rows > 0, nil
 }
