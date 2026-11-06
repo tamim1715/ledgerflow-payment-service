@@ -94,7 +94,7 @@ LedgerFlow follows a **Modular Clean Architecture** pattern designed for enterpr
 - **Idempotency Checks**: Every charge requires a unique `idempotency_key` to avoid duplicate charges on retried requests.
 - **Two-Step Authorization & Capture**: Support for direct capture or manual capture workflows (`/capture`, `/cancel`).
 - **Comprehensive Refund Management**: Supports both full and partial refunds with cumulative balance validation to prevent over-refunding.
-- **Billing & Invoice Engine**: Auto-generates structured bill numbers (`INV-YYYYMMDD-XXXX`), calculates totals, line items, and supports statuses (`DRAFT`, `PENDING`, `PAID`, `OVERDUE`, `CANCELLED`).
+- **Billing & Invoice Engine**: Auto-generates structured bill numbers (`INV-YYYYMMDD-XXXX`), calculates totals, line items, and supports statuses (`DRAFT`, `PENDING`, `PAID`, `OVERDUE`, `CANCELLED`). 
 - **Cloud-Native Health Probes**: Ready-to-use `/health`, `/ready`, and `/live` endpoints for Kubernetes probes.
 - **Interactive Swagger UI**: Interactive API documentation generated per module and consolidated globally.
 
@@ -178,7 +178,7 @@ ledgerflow-payment-service/
 
 ---
 
-## Database Schema & Migrations
+## Database Schema & Migrations for the project
 
 LedgerFlow uses PostgreSQL with clean relational tables and foreign-key cascades:
 
@@ -671,5 +671,6 @@ When receiving termination signals (`SIGINT`, `SIGTERM`):
 ---
 
 ## License
-
 This project is licensed under the [Apache 2.0 License](LICENSE).
+
+END
